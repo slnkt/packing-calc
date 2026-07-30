@@ -162,6 +162,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       <div class="prow"><span class="plabel">Вес банки с продуктом</span>
         <span class="pctrl"><input id="p-jar" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
       </div>
+      <p class="note" style="margin:2px 0 0"><b>У каждого SKU вес свой.</b> Здесь для простоты одно число на весь заказ; в реальной системе вес берётся по каждому SKU из заказа.</p>
     </div>
 
     <div class="pgroup">
@@ -246,7 +247,7 @@ const DEFAULTS = {
   boxCap: 3,                    // шоубоксов в коробке
   boxL: 18, boxW: 13, boxH: 28, // коробка, см
   boxTare: null,                // тара коробки, г — нет данных
-  jarWeight: null,              // банка с продуктом, г — нет данных
+  jarWeight: null,              // банка с продуктом, г — нет данных; в реальной системе вес свой у каждого SKU
   subsidy: 238,                 // субсидия на банку, ₽
   roundStep: 10,                // шаг округления доплаты, ₽
   minPay: 50,                   // минимальная доплата, ₽
@@ -483,6 +484,7 @@ function renderSingle(jars, cost, p) {
   h += '</tbody></table>';
   h += `<p class="note" style="margin:9px 0 0">Объёмный вес = Д × Ш × В / ${fmtDim(p.divisor)}. Расчётный — больший из двух весов.`;
   if (o.approxAny) h += ' Пока физический вес неизвестен, расчётный показан по объёмному — знак ≥ значит «не меньше».';
+  h += ' Вес банки в прототипе один на весь заказ; в реальной системе он свой у каждого SKU.';
   h += '</p></div>';
 
   /* Шаг 3 */
