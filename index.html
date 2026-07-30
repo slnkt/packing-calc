@@ -73,6 +73,7 @@ h2{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:600;margi
 .oi input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(16,152,212,.15)}
 
 .steps{display:grid;gap:14px;margin-top:18px}
+.steps>*{min-width:0}
 .step{border:1px solid var(--line);border-radius:12px;padding:14px 18px 15px}
 .step h3{margin:0 0 4px;font-size:14px;font-weight:600}
 .step .lead{margin:0 0 10px;font-size:12.5px;color:var(--muted);max-width:820px}
@@ -80,8 +81,33 @@ h2{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:600;margi
 .crow .lbl{flex:0 0 210px}
 .crow .formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);background:#f4f9fc;border-radius:6px;padding:2px 8px}
 .crow .val{font-weight:600;white-space:nowrap}
+.crow.hit{background:var(--sky);border-radius:8px;padding:5px 10px;margin:2px -10px}
 .note{font-size:12px;color:var(--muted)}
 .msg{padding:10px 0;font-size:13.5px;color:var(--error)}
+
+/* Наглядная цепочка: банки → шоубоксы → грузовые места */
+.flow{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap;margin:2px 0 4px}
+.flow-stage{display:flex;flex-direction:column;gap:7px;min-width:0}
+.flow-label{font-size:11.5px;color:var(--muted)}
+.flow-label b{display:block;color:var(--ink);font-weight:600;font-size:13px}
+.flow-arrow{align-self:center;color:var(--blue-light);font-size:18px;line-height:1}
+.bin{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px}
+.jars{display:inline-flex;flex-wrap:wrap;gap:3px}
+.jars i{width:7px;height:10px;border-radius:2px;background:var(--blue)}
+.sbox{display:inline-flex;align-items:center;gap:3px;padding:4px 5px;border:1px solid var(--line);border-radius:5px;background:#fff}
+.sbox.partial{border-style:dashed;border-color:var(--blue)}
+.place-wrap{display:inline-flex;flex-direction:column;align-items:center;gap:3px}
+.place{display:inline-flex;align-items:center;gap:4px;padding:5px;border:1.5px solid var(--blue-light);border-radius:8px;background:var(--sky)}
+.place-cap{font-size:10px;color:var(--muted)}
+
+/* Формулы под спойлером — нужны разработчику, но мешают читать */
+.formulas{margin-top:12px;border-top:1px dashed var(--line);padding-top:9px}
+.formulas summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted);list-style:none}
+.formulas summary::-webkit-details-marker{display:none}
+.formulas summary::before{content:"▸";font-size:9px}
+.formulas[open] summary::before{content:"▾"}
+.formulas summary:hover{color:var(--blue)}
+.formulas .crow{font-size:13px}
 
 /* Ввод себестоимости внутри шага 3 */
 .cost-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 12px;margin-bottom:12px;background:var(--sky);border-radius:10px}
@@ -113,6 +139,8 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
   section.card{padding:16px}
   .crow .lbl{flex-basis:100%}
   .h-note{margin-left:0}
+  /* стадии встают друг под друга — стрелки между ними только мешают */
+  .flow-arrow{display:none}
 }
 </style>
 </head>
@@ -202,7 +230,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
   <div class="order-inputs">
     <div class="oi">
       <label for="in-jars">Банок в заказе</label>
-      <input id="in-jars" type="number" inputmode="numeric" min="1" step="1" value="7">
+      <input id="in-jars" type="number" inputmode="numeric" min="1" step="1" value="1">
     </div>
   </div>
 
@@ -214,7 +242,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       <p class="lead">Себестоимость от СДЭК подставляем в нашу формулу: часть покрывает субсидия, остальное доплачивает клиент.</p>
       <div class="cost-row">
         <label for="in-cost">Себестоимость от СДЭК</label>
-        <input id="in-cost" type="number" inputmode="decimal" min="0" step="1" value="400">
+        <input id="in-cost" type="number" inputmode="decimal" min="0" step="1" value="250">
         <span class="unit">₽</span>
         <span class="note">Ответ на данные из шага 2. Здесь вводится вручную, в реальной системе приходит из API.</span>
       </div>
@@ -433,6 +461,18 @@ const placeWord = n => `${n} ${plural(n, 'место', 'места', 'мест')
 
 const tip = text => `<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">${text}</span></span>`;
 
+/* Кубики для наглядной цепочки: банка — прямоугольник, шоубокс — рамка
+   вокруг банок (пунктирная, если неполный), грузовое место — синяя рамка */
+const jarDots = n => `<span class="jars">${'<i></i>'.repeat(n)}</span>`;
+const sboxHtml = (n, cap) => `<span class="sbox${n < cap ? ' partial' : ''}" title="${jarsWord(n)}">${jarDots(n)}</span>`;
+function placeHtml(pl, p) {
+  const inner = pl.showboxes.map(n => sboxHtml(n, p.sbCap)).join('');
+  const cap = pl.kind === 'box' ? 'коробка' : 'шоубокс';
+  return `<span class="place-wrap"><span class="place" title="${placeContents(pl)}">${inner}</span><span class="place-cap">${cap}</span></span>`;
+}
+const flowStage = (label, body) => `<div class="flow-stage"><div class="flow-label">${label}</div><div class="bin">${body}</div></div>`;
+const flowArrow = '<div class="flow-arrow">→</div>';
+
 // «Коробка — 3 шоубокса, 6 банок» / «Шоубокс — 1 банка»
 function placeContents(pl) {
   return pl.kind === 'box'
@@ -464,29 +504,47 @@ function renderSteps12(jars, p) {
   }
   const o = computeOrder(jars, p);
 
-  /* Шаг 1 — компоновка */
+  /* Шаг 1 — компоновка: сначала картинкой, формулы под спойлером */
   let h = '<div class="step"><h3>Шаг 1. Компонуем заказ по грузовым местам</h3>';
-  h += '<p class="lead">Банки укладываются в шоубоксы, шоубоксы — в транспортные коробки. Что не набралось на полную коробку, едет отдельными местами.</p>';
-  h += `<div class="crow"><span class="lbl">Шоубоксов</span><span class="formula">ceil(${jars} / ${p.sbCap}) = ${o.sbCount}</span><span class="val">${sbWord(o.sbCount)}</span></div>`;
-  h += `<div class="crow"><span class="lbl">В последнем шоубоксе</span><span class="formula">${jars} − (${o.sbCount} − 1) × ${p.sbCap} = ${o.lastJars}</span><span class="val">${jarsWord(o.lastJars)}${o.lastJars < p.sbCap ? ' — неполный' : ''}</span></div>`;
-  h += `<div class="crow"><span class="lbl">Коробок</span><span class="formula">floor(${o.sbCount} / ${p.boxCap}) = ${o.boxCount}</span><span class="val">${boxWord(o.boxCount)}</span></div>`;
+  h += `<p class="lead">Каждые ${p.sbCap} ${plural(p.sbCap, 'банка', 'банки', 'банок')} — один шоубокс, каждые ${p.boxCap} ${plural(p.boxCap, 'шоубокс', 'шоубокса', 'шоубоксов')} — одна транспортная коробка. Шоубоксы, которые не набрались на полную коробку, едут отдельными грузовыми местами.</p>`;
+
+  if (o.sbCount <= 40) { // на очень больших заказах картинка перестаёт читаться
+    const sboxes = o.places.flatMap(pl => pl.showboxes).map(n => sboxHtml(n, p.sbCap)).join('');
+    h += '<div class="flow">';
+    h += flowStage(`<b>${jarsWord(jars)}</b>в заказе`, jarDots(jars));
+    h += flowArrow;
+    const sbNote = o.lastJars < p.sbCap
+      ? (o.sbCount === 1 ? 'неполный' : 'последний неполный')
+      : (o.sbCount === 1 ? 'полный' : 'все полные');
+    h += flowStage(`<b>${sbWord(o.sbCount)}</b>${sbNote}`, sboxes);
+    h += flowArrow;
+    h += flowStage(`<b>${placeWord(o.placeCount)}</b>для СДЭК`, o.places.map(pl => placeHtml(pl, p)).join(''));
+    h += '</div>';
+  }
+
+  if (o.oddInBox) {
+    h += '<p class="note" style="margin:8px 0 0">Неполный шоубокс попал в коробку: остатка нет — все шоубоксы вошли в полные коробки. Вес коробки ниже посчитан по фактическому содержимому.</p>';
+  }
+
   const restNote = o.rest === 0 ? ''
     : REMAINDER_MODE === 'separate'
       ? (o.rest === 1 ? ' — едет отдельно' : ' — едут отдельно')
       : ' — в неполной коробке';
-  h += `<div class="crow"><span class="lbl">Остаток шоубоксов</span><span class="formula">${o.sbCount} mod ${p.boxCap} = ${o.rest}</span><span class="val">${sbWord(o.rest)}${restNote}</span></div>`;
   const placeBoxes = o.places.filter(x => x.kind === 'box').length;
   const placeSingles = o.placeCount - placeBoxes;
+  h += '<details class="formulas"><summary>Как это считается</summary>';
+  h += `<div class="crow"><span class="lbl">Шоубоксов</span><span class="formula">ceil(${jars} / ${p.sbCap}) = ${o.sbCount}</span><span class="val">${sbWord(o.sbCount)}</span></div>`;
+  h += `<div class="crow"><span class="lbl">В последнем шоубоксе</span><span class="formula">${jars} − (${o.sbCount} − 1) × ${p.sbCap} = ${o.lastJars}</span><span class="val">${jarsWord(o.lastJars)}${o.lastJars < p.sbCap ? ' — неполный' : ''}</span></div>`;
+  h += `<div class="crow"><span class="lbl">Коробок</span><span class="formula">floor(${o.sbCount} / ${p.boxCap}) = ${o.boxCount}</span><span class="val">${boxWord(o.boxCount)}</span></div>`;
+  h += `<div class="crow"><span class="lbl">Остаток шоубоксов</span><span class="formula">${o.sbCount} mod ${p.boxCap} = ${o.rest}</span><span class="val">${sbWord(o.rest)}${restNote}</span></div>`;
   h += `<div class="crow"><span class="lbl">Грузовых мест</span><span class="formula">${placeBoxes} + ${placeSingles} = ${o.placeCount}</span><span class="val">${placeWord(o.placeCount)}</span></div>`;
-  if (o.oddInBox) {
-    h += '<p class="note" style="margin:8px 0 0">Неполный шоубокс попал в коробку: остатка нет — все шоубоксы вошли в полные коробки. Вес коробки ниже посчитан по фактическому содержимому.</p>';
-  }
+  h += '</details>';
   h += '</div>';
 
   /* Шаг 2 — данные для СДЭК */
   h += '<div class="step"><h3>Шаг 2. Отдаём места в СДЭК</h3>';
   h += '<p class="lead">По каждому грузовому месту передаём габариты и вес. Дальше СДЭК считает тариф сам и возвращает себестоимость доставки — объёмный вес и прочую механику тарифа он определяет на своей стороне.</p>';
-  h += `<table><thead><tr><th>Место</th><th>Что внутри</th><th class="r">Габариты Д×Ш×В, см</th><th class="r">Вес, г${tip('Банки внутри плюс тара шоубоксов и коробки. Вес места — обязательное поле в запросе к СДЭК.')}</th></tr></thead><tbody>`;
+  h += `<div class="tbl-scroll" style="margin-top:0"><table><thead><tr><th>Место</th><th>Что внутри</th><th class="r">Габариты Д×Ш×В, см</th><th class="r">Вес, г${tip('Банки внутри плюс тара шоубоксов и коробки. Вес места — обязательное поле в запросе к СДЭК.')}</th></tr></thead><tbody>`;
   o.places.forEach((pl, i) => {
     const w = pl.weightG === null ? '<span class="nodata">нет данных</span>' : fmtNum(pl.weightG);
     h += `<tr><td>${i + 1}</td><td style="white-space:normal">${placeContents(pl)}</td>` +
@@ -495,7 +553,7 @@ function renderSteps12(jars, p) {
   });
   const totW = o.totWeightG === null ? '<span class="nodata">нет данных</span>' : fmtNum(o.totWeightG);
   h += `<tr class="total"><td>Итого</td><td>${placeWord(o.placeCount)}</td><td class="r"></td><td class="r">${totW}</td></tr>`;
-  h += '</tbody></table>';
+  h += '</tbody></table></div>';
   h += '<p class="note" style="margin:9px 0 0">Вес места = банки внутри × вес банки + тара шоубоксов + тара коробки.';
   if (!o.weightKnown) h += ' <b>Пока вес банки не задан, вес места посчитать нельзя, а без него запрос в СДЭК не собрать.</b>';
   h += '</p></div>';
@@ -526,7 +584,11 @@ function renderStep3(jars, cost, p) {
     h += `<div class="crow"><span class="lbl">Доплата</span><span class="formula">разница ≤ 0</span><span class="val">0 ₽</span></div>`;
   } else {
     h += `<div class="crow"><span class="lbl">Округление вверх до кратного ${fmtRub(p.roundStep)} ₽</span><span class="formula">ceil(${fmtRub(m.diff)} / ${fmtRub(p.roundStep)}) × ${fmtRub(p.roundStep)} = ${fmtRub(m.rounded)}</span><span class="val">${fmtRub(m.rounded)} ₽</span></div>`;
-    h += `<div class="crow"><span class="lbl">Не меньше минимума</span><span class="formula">max(${fmtRub(p.minPay)}; ${fmtRub(m.rounded)}) = ${fmtRub(m.pay)}</span><span class="val">${fmtRub(m.pay)} ₽</span></div>`;
+    const minWins = m.rounded < p.minPay;
+    h += `<div class="crow${minWins ? ' hit' : ''}"><span class="lbl">Не меньше минимума</span><span class="formula">max(${fmtRub(p.minPay)}; ${fmtRub(m.rounded)}) = ${fmtRub(m.pay)}</span><span class="val">${fmtRub(m.pay)} ₽</span></div>`;
+    if (minWins) {
+      h += `<p class="note" style="margin:6px 0 0">Ради этого случая и нужна минимальная доплата: разница вышла всего ${fmtRub(m.diff)} ₽, после округления ${fmtRub(m.rounded)} ₽ — меньше минимума, поэтому клиент платит ${fmtRub(p.minPay)} ₽.</p>`;
+    }
   }
   h += `<div class="result-chip">Доплата клиента: ${fmtRub(m.pay)} ₽`;
   h += m.pay === 0
