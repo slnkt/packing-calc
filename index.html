@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Калькулятор упаковки и доставки (прототип)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#1098D4;
+  --blue-light:#63BCE3;
+  --sky:#EDF8FC;
+  --ink:#05131A;
+  --error:#d10714;
+  --bg:#fafafa;
+  --card:#ffffff;
+  --line:#dce9f0;
+  --row-line:#edf3f7;
+  --muted:rgba(5,19,26,.58);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.55 "Montserrat",Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:34px 20px 70px}
+
+h1{font-size:24px;font-weight:600;margin:0 0 6px}
+.sub{color:var(--muted);font-size:13.5px;margin:0;max-width:780px}
+.warnline{margin-top:16px;padding:10px 14px;border-left:3px solid var(--error);background:var(--card);border:1px solid var(--line);border-left-width:3px;border-left-color:var(--error);border-radius:0 10px 10px 0;font-size:13px;max-width:880px}
+
+section.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-top:20px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+h2{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:600;margin:0}
+.num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.h-note{color:var(--muted);font-size:12.5px;margin:8px 0 0 37px;max-width:860px}
+
+.btn{display:inline-flex;align-items:center;border:0;border-radius:10px;padding:9px 18px;font:600 13px "Montserrat",Arial,Helvetica,sans-serif;color:#fff;background:linear-gradient(135deg,var(--blue),var(--blue-light));cursor:pointer}
+.btn:hover{filter:brightness(1.06)}
+
+/* Параметры */
+.pgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px}
+.pgroup{border:1px solid var(--line);border-radius:12px;padding:13px 16px;background:#fff}
+.pgroup h3{margin:0 0 8px;font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.prow{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+.prow .plabel{flex:1 1 auto;min-width:0}
+.prow.stack{flex-wrap:wrap}
+.prow.stack .plabel{flex:1 1 100%}
+.prow .pctrl{flex:none;display:flex;align-items:center;gap:6px}
+.prow input{width:70px;padding:6px 8px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:13px;color:var(--ink);background:#fff;text-align:right}
+.prow input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(16,152,212,.15)}
+.prow input.invalid{border-color:var(--error);box-shadow:0 0 0 3px rgba(209,7,20,.12)}
+.prow input.opt{width:104px}
+.prow input.opt::placeholder{font-size:11.5px;color:rgba(5,19,26,.45)}
+.prow input.opt:placeholder-shown{border-style:dashed;border-color:rgba(209,7,20,.5);background:rgba(209,7,20,.03)}
+.dims{display:flex;align-items:center;gap:3px}
+.dims input{width:46px;padding-left:4px;padding-right:5px}
+.dims .x{color:var(--muted);font-size:11px}
+.unit{color:var(--muted);font-size:11.5px;white-space:nowrap}
+
+/* Расчёт заказа */
+.order-inputs{display:flex;gap:26px;flex-wrap:wrap;margin-top:16px}
+.oi label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+.oi input{width:170px;padding:9px 12px;font:inherit;font-size:15px;font-weight:600;color:var(--ink);border:1px solid var(--line);border-radius:10px;text-align:right}
+.oi input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(16,152,212,.15)}
+.oi .hint{font-size:11.5px;color:var(--muted);margin-top:5px;max-width:250px}
+
+.steps{display:grid;gap:14px;margin-top:18px}
+.step{border:1px solid var(--line);border-radius:12px;padding:14px 18px 15px}
+.step h3{margin:0 0 9px;font-size:14px;font-weight:600}
+.crow{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:3.5px 0;font-size:13.5px}
+.crow .lbl{flex:0 0 210px}
+.crow .formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);background:#f4f9fc;border-radius:6px;padding:2px 8px}
+.crow .val{font-weight:600;white-space:nowrap}
+.note{font-size:12px;color:var(--muted)}
+.msg{padding:10px 0;font-size:13.5px;color:var(--error)}
+
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:11.5px;font-weight:600;color:var(--muted);text-align:left;padding:7px 10px;border-bottom:1.5px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--row-line);white-space:nowrap}
+th.r,td.r{text-align:right}
+tbody tr:last-child td{border-bottom:0}
+tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
+.nodata{color:var(--error);font-size:11.5px;font-weight:500}
+.ge{color:var(--muted);font-weight:400}
+
+.result-chip{display:inline-block;background:linear-gradient(135deg,var(--blue),var(--blue-light));color:#fff;border-radius:12px;padding:11px 22px;font-size:15px;font-weight:600;margin-top:8px}
+.result-chip small{display:block;font-size:11px;font-weight:500;opacity:.9;margin-top:1px}
+
+/* Таблица 1–24 */
+.tbl-scroll{overflow-x:auto;margin-top:14px}
+#big tbody tr{cursor:pointer}
+#big tbody tr:hover td{background:#f6fbfe}
+#big tbody tr.sel td{background:var(--sky)}
+#big td.jump{background:var(--sky);font-weight:600}
+
+@media (max-width:680px){
+  h1{font-size:20px}
+  section.card{padding:16px}
+  .crow .lbl{flex-basis:100%}
+  .h-note{margin-left:0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Калькулятор упаковки и доставки</h1>
+<p class="sub">Прототип. Показывает, как заказ раскладывается по грузовым местам, сколько они весят и какая выходит доплата за доставку. Любое число можно менять — всё пересчитывается сразу.</p>
+
+<div class="warnline" id="warn" hidden></div>
+
+<!-- 1. Параметры -->
+<section class="card">
+  <div class="card-head">
+    <h2><span class="num">1</span> Параметры</h2>
+    <button class="btn" id="btn-reset" type="button">Вернуть исходные значения</button>
+  </div>
+
+  <div class="pgroups">
+    <div class="pgroup">
+      <h3>Шоубокс</h3>
+      <div class="prow stack"><span class="plabel">Габариты Д×Ш×В</span>
+        <span class="pctrl dims">
+          <input id="p-sb-l" type="number" inputmode="decimal" min="0" step="0.1">
+          <span class="x">×</span>
+          <input id="p-sb-w" type="number" inputmode="decimal" min="0" step="0.1">
+          <span class="x">×</span>
+          <input id="p-sb-h" type="number" inputmode="decimal" min="0" step="0.1">
+          <span class="unit">см</span>
+        </span>
+      </div>
+      <div class="prow"><span class="plabel">Вес тары</span>
+        <span class="pctrl"><input id="p-sb-tare" type="number" inputmode="decimal" min="0" step="1"><span class="unit">г</span></span>
+      </div>
+      <div class="prow"><span class="plabel">Банок внутри</span>
+        <span class="pctrl"><input id="p-sb-cap" type="number" inputmode="numeric" min="1" step="1"><span class="unit">шт</span></span>
+      </div>
+    </div>
+
+    <div class="pgroup">
+      <h3>Транспортная коробка</h3>
+      <div class="prow"><span class="plabel">Шоубоксов внутри</span>
+        <span class="pctrl"><input id="p-box-cap" type="number" inputmode="numeric" min="1" step="1"><span class="unit">шт</span></span>
+      </div>
+      <div class="prow stack"><span class="plabel">Габариты Д×Ш×В</span>
+        <span class="pctrl dims">
+          <input id="p-box-l" type="number" inputmode="decimal" min="0" step="0.1">
+          <span class="x">×</span>
+          <input id="p-box-w" type="number" inputmode="decimal" min="0" step="0.1">
+          <span class="x">×</span>
+          <input id="p-box-h" type="number" inputmode="decimal" min="0" step="0.1">
+          <span class="unit">см</span>
+        </span>
+      </div>
+      <div class="prow"><span class="plabel">Вес тары</span>
+        <span class="pctrl"><input id="p-box-tare" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
+      </div>
+    </div>
+
+    <div class="pgroup">
+      <h3>Банка</h3>
+      <div class="prow"><span class="plabel">Вес банки с продуктом</span>
+        <span class="pctrl"><input id="p-jar" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
+      </div>
+    </div>
+
+    <div class="pgroup">
+      <h3>Доставка</h3>
+      <div class="prow"><span class="plabel">Субсидия на банку</span>
+        <span class="pctrl"><input id="p-subsidy" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
+      </div>
+      <p class="note" style="margin:0 0 4px">Субсидия — часть себестоимости доставки, которую компания берёт на себя, за каждую банку заказа.</p>
+      <div class="prow"><span class="plabel">Шаг округления доплаты</span>
+        <span class="pctrl"><input id="p-round" type="number" inputmode="decimal" min="1" step="1"><span class="unit">₽</span></span>
+      </div>
+      <div class="prow"><span class="plabel">Минимальная доплата</span>
+        <span class="pctrl"><input id="p-min" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
+      </div>
+      <div class="prow"><span class="plabel">Делитель объёмного веса</span>
+        <span class="pctrl"><input id="p-divisor" type="number" inputmode="decimal" min="1" step="100"><span class="unit">см³/кг</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Расчёт заказа -->
+<section class="card">
+  <h2><span class="num">2</span> Расчёт заказа</h2>
+
+  <div class="order-inputs">
+    <div class="oi">
+      <label for="in-jars">Банок в заказе</label>
+      <input id="in-jars" type="number" inputmode="numeric" min="1" step="1" value="7">
+    </div>
+    <div class="oi">
+      <label for="in-cost">Себестоимость доставки СДЭК, ₽</label>
+      <input id="in-cost" type="number" inputmode="decimal" min="0" step="1" value="400">
+      <div class="hint">Вводится вручную. В реальной системе считается по тарифам СДЭК.</div>
+    </div>
+  </div>
+
+  <div id="single-out" class="steps"></div>
+</section>
+
+<!-- 3. Таблица 1–24 -->
+<section class="card">
+  <h2><span class="num">3</span> Заказы от 1 до 24 банок</h2>
+  <p class="h-note" id="tbl-note"></p>
+  <div class="tbl-scroll">
+    <table id="big">
+      <thead>
+        <tr>
+          <th class="r">Банок</th>
+          <th class="r">Шоубоксов</th>
+          <th class="r">Мест</th>
+          <th>Состав мест</th>
+          <th class="r">Расчётный вес, кг</th>
+          <th class="r">Субсидия, ₽</th>
+          <th class="r">Разница, ₽</th>
+          <th class="r">Доплата, ₽</th>
+        </tr>
+      </thead>
+      <tbody id="big-tbody"></tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:12px">Подсвечены ячейки, где число мест меняется или доплата обнуляется. Клик по строке подставляет её в блок 2.</p>
+  <p class="note" id="tbl-foot" hidden>* последний шоубокс неполный, а остатка нет — он едет внутри коробки, вес коробки посчитан по фактическому содержимому.</p>
+</section>
+
+</div>
+
+<script>
+'use strict';
+
+/* Логика в три шага:
+   1) упаковка: банки → шоубоксы → грузовые места;
+   2) вес каждого места: физический, объёмный, расчётный;
+   3) деньги: субсидия, разница, доплата клиента. */
+
+// Исходные значения. Вес тары коробки и вес банки неизвестны (null):
+// поля пустые, значения по умолчанию не подставляются намеренно.
+const DEFAULTS = {
+  sbL: 17, sbW: 12, sbH: 9,     // шоубокс, см
+  sbTare: 50,                   // тара шоубокса, г
+  sbCap: 2,                     // банок в шоубоксе
+  boxCap: 3,                    // шоубоксов в коробке
+  boxL: 18, boxW: 13, boxH: 28, // коробка, см
+  boxTare: null,                // тара коробки, г — нет данных
+  jarWeight: null,              // банка с продуктом, г — нет данных
+  subsidy: 238,                 // субсидия на банку, ₽
+  roundStep: 10,                // шаг округления доплаты, ₽
+  minPay: 50,                   // минимальная доплата, ₽
+  divisor: 5000                 // делитель объёмного веса, см³/кг
+};
+
+// Режим упаковки остатка — шоубоксов, не набравшихся в полную коробку:
+//   'separate' — каждый шоубокс остатка едет отдельным грузовым местом (текущий вариант);
+//   'topup'    — остаток кладётся в ещё одну, неполную коробку.
+// Веса и деньги от режима не зависят: любое место считается по его
+// фактическому содержимому, а подписи в интерфейсе строятся от готового
+// списка мест, поэтому верны в обоих режимах.
+const REMAINDER_MODE = 'separate';
+
+/* ---- Шаг 1. Упаковка ---- */
+
+// Банки по шоубоксам: все полные, последний может быть неполным.
+function packShowboxes(jars, sbCap) {
+  const count = Math.ceil(jars / sbCap);
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    list.push(i < count - 1 ? sbCap : jars - (count - 1) * sbCap);
+  }
+  return list; // сколько банок в каждом шоубоксе, полные первыми
+}
+
+// Шоубоксы по грузовым местам. Коробки набираются первыми и с начала
+// списка, поэтому неполный шоубокс (он последний) попадает в остаток,
+// когда остаток ненулевой. Крайний случай: последний шоубокс неполный,
+// а остаток нулевой (при исходных значениях это 5, 11, 17, 23 банки) —
+// ему некуда деться, кроме последней коробки; её вес считается
+// по фактическому числу банок.
+function buildPlaces(showboxes, boxCap, mode) {
+  const fullBoxes = Math.floor(showboxes.length / boxCap);
+  const places = [];
+  let i = 0;
+  for (let b = 0; b < fullBoxes; b++) {
+    places.push({ kind: 'box', showboxes: showboxes.slice(i, i + boxCap) });
+    i += boxCap;
+  }
+  const rest = showboxes.slice(i);
+  if (rest.length) {
+    if (mode === 'topup') {
+      places.push({ kind: 'box', showboxes: rest }); // неполная коробка
+    } else {
+      rest.forEach(sb => places.push({ kind: 'showbox', showboxes: [sb] }));
+    }
+  }
+  return places;
+}
+
+/* ---- Шаг 2. Вес ---- */
+
+// Объёмный вес места, кг: Д × Ш × В / делитель.
+function placeVolumeKg(place, p) {
+  const d = place.kind === 'box' ? [p.boxL, p.boxW, p.boxH] : [p.sbL, p.sbW, p.sbH];
+  return d[0] * d[1] * d[2] / p.divisor;
+}
+
+// Физический вес места, г — по фактическому содержимому.
+// null, когда данных не хватает: не задан вес банки,
+// а для коробок ещё и тара коробки.
+function placePhysicalG(place, p) {
+  if (p.jarWeight == null || p.sbTare == null) return null;
+  const jarsIn = place.showboxes.reduce((s, n) => s + n, 0);
+  let g = jarsIn * p.jarWeight + place.showboxes.length * p.sbTare;
+  if (place.kind === 'box') {
+    if (p.boxTare == null) return null;
+    g += p.boxTare;
+  }
+  return g;
+}
+
+// Полный расчёт упаковки и весов для количества банок.
+function computeOrder(jars, p) {
+  const showboxes = packShowboxes(jars, p.sbCap);
+  const sbCount = showboxes.length;
+  const lastJars = showboxes[sbCount - 1];
+  const boxCount = Math.floor(sbCount / p.boxCap);
+  const rest = sbCount % p.boxCap;
+  const places = buildPlaces(showboxes, p.boxCap, REMAINDER_MODE);
+
+  for (const pl of places) {
+    pl.volKg = placeVolumeKg(pl, p);
+    pl.physG = placePhysicalG(pl, p);
+    pl.approx = pl.physG === null; // физвес неизвестен → расчётный берём по объёмному (нижняя граница)
+    pl.billedKg = pl.approx ? pl.volKg : Math.max(pl.physG / 1000, pl.volKg);
+  }
+
+  const totVol = places.reduce((s, x) => s + x.volKg, 0);
+  const physFull = places.every(x => x.physG !== null);
+  const totPhysG = physFull ? places.reduce((s, x) => s + x.physG, 0) : null;
+  const totBilled = places.reduce((s, x) => s + x.billedKg, 0);
+  const approxAny = places.some(x => x.approx);
+  // Неполный шоубокс оказался внутри коробки (см. комментарий к buildPlaces)
+  const oddInBox = lastJars < p.sbCap && places.length > 0 &&
+                   places[places.length - 1].kind === 'box';
+
+  return { jars, sbCount, lastJars, boxCount, rest, places,
+           placeCount: places.length, totVol, totPhysG, totBilled, approxAny, oddInBox };
+}
+
+/* ---- Шаг 3. Доплата ---- */
+
+function computeMoney(jars, cost, p) {
+  const subsidy = jars * p.subsidy;
+  const diff = cost - subsidy;
+  let pay = 0, rounded = null;
+  if (diff > 0) {
+    // −1e-9 гасит хвосты плавающей точки, чтобы ровное значение не прыгало на шаг вверх
+    rounded = p.roundStep > 0 ? Math.ceil((diff - 1e-9) / p.roundStep) * p.roundStep : diff;
+    pay = Math.max(p.minPay, rounded);
+  }
+  return { subsidy, diff, pay, rounded };
+}
+
+/* ================= Интерфейс ================= */
+
+const $ = id => document.getElementById(id);
+
+const PARAM_FIELDS = {
+  sbL: 'p-sb-l', sbW: 'p-sb-w', sbH: 'p-sb-h', sbTare: 'p-sb-tare', sbCap: 'p-sb-cap',
+  boxCap: 'p-box-cap', boxL: 'p-box-l', boxW: 'p-box-w', boxH: 'p-box-h', boxTare: 'p-box-tare',
+  jarWeight: 'p-jar', subsidy: 'p-subsidy', roundStep: 'p-round', minPay: 'p-min', divisor: 'p-divisor'
+};
+const OPTIONAL = new Set(['boxTare', 'jarWeight']);  // могут быть пустыми: данных нет
+const INT_MIN1 = new Set(['sbCap', 'boxCap']);       // целые, не меньше 1
+const POSITIVE = new Set(['sbL', 'sbW', 'sbH', 'boxL', 'boxW', 'boxH', 'divisor', 'roundStep']);
+
+function readParams() {
+  const p = {};
+  let ok = true;
+  for (const [key, id] of Object.entries(PARAM_FIELDS)) {
+    const el = $(id);
+    const raw = el.value.trim();
+    let v = raw === '' ? null : Number(raw.replace(',', '.'));
+    let bad = false;
+    if (v !== null) {
+      if (!isFinite(v) || v < 0) bad = true;
+      if (POSITIVE.has(key) && v <= 0) bad = true;
+      if (INT_MIN1.has(key) && (!Number.isInteger(v) || v < 1)) bad = true;
+    } else if (!OPTIONAL.has(key)) {
+      bad = true; // обязательный параметр пуст
+    }
+    el.classList.toggle('invalid', bad);
+    if (bad) { ok = false; p[key] = null; } else { p[key] = v; }
+  }
+  return { p, ok };
+}
+
+/* ---- Форматирование ---- */
+
+const fmtKg  = kg => kg.toFixed(3).replace('.', ',');
+const fmtDim = n => String(n).replace('.', ',');
+const fmtRub = n => {
+  const opts = Math.abs(n % 1) > 1e-9
+    ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : {};
+  return n.toLocaleString('ru-RU', opts).replace('-', '−');
+};
+
+function plural(n, one, few, many) {
+  const m = Math.abs(n) % 100, d = m % 10;
+  if (m >= 11 && m <= 14) return many;
+  if (d === 1) return one;
+  if (d >= 2 && d <= 4) return few;
+  return many;
+}
+const jarsWord  = n => `${n} ${plural(n, 'банка', 'банки', 'банок')}`;
+const sbWord    = n => `${n} ${plural(n, 'шоубокс', 'шоубокса', 'шоубоксов')}`;
+const boxWord   = n => `${n} ${plural(n, 'коробка', 'коробки', 'коробок')}`;
+const placeWord = n => `${n} ${plural(n, 'место', 'места', 'мест')}`;
+
+// «Коробка 18×13×28 см — 3 шоубокса, 6 банок» / «Шоубокс 17×12×9 см — 1 банка»
+function placeLabel(pl, p) {
+  const jarsIn = pl.showboxes.reduce((s, n) => s + n, 0);
+  return pl.kind === 'box'
+    ? `Коробка ${fmtDim(p.boxL)}×${fmtDim(p.boxW)}×${fmtDim(p.boxH)} см — ${sbWord(pl.showboxes.length)}, ${jarsWord(jarsIn)}`
+    : `Шоубокс ${fmtDim(p.sbL)}×${fmtDim(p.sbW)}×${fmtDim(p.sbH)} см — ${jarsWord(jarsIn)}`;
+}
+
+// «1 коробка + 2 шоубокса» для таблицы; неполная коробка (режим 'topup')
+// подписывается отдельно, чтобы отличаться от полной
+function compositionShort(order, p) {
+  const full = order.places.filter(x => x.kind === 'box' && x.showboxes.length >= p.boxCap).length;
+  const partial = order.places.filter(x => x.kind === 'box' && x.showboxes.length < p.boxCap).length;
+  const singles = order.places.filter(x => x.kind === 'showbox').length;
+  const parts = [];
+  if (full) parts.push(boxWord(full));
+  if (partial) parts.push(`${partial} ${plural(partial, 'неполная коробка', 'неполные коробки', 'неполных коробок')}`);
+  if (singles) parts.push(sbWord(singles));
+  return parts.length ? parts.join(' + ') : '—';
+}
+
+/* ---- Отрисовка ---- */
+
+function renderSingle(jars, cost, p) {
+  const out = $('single-out');
+
+  if (jars === null) {
+    out.innerHTML = '<div class="msg">Введите количество банок: целое число от 1.</div>';
+    return;
+  }
+  const o = computeOrder(jars, p);
+
+  /* Шаг 1 */
+  let h = '<div class="step"><h3>Шаг 1. Упаковка</h3>';
+  h += `<div class="crow"><span class="lbl">Шоубоксов</span><span class="formula">ceil(${jars} / ${p.sbCap}) = ${o.sbCount}</span><span class="val">${sbWord(o.sbCount)}</span></div>`;
+  h += `<div class="crow"><span class="lbl">В последнем шоубоксе</span><span class="formula">${jars} − (${o.sbCount} − 1) × ${p.sbCap} = ${o.lastJars}</span><span class="val">${jarsWord(o.lastJars)}${o.lastJars < p.sbCap ? ' — неполный' : ''}</span></div>`;
+  h += `<div class="crow"><span class="lbl">Коробок</span><span class="formula">floor(${o.sbCount} / ${p.boxCap}) = ${o.boxCount}</span><span class="val">${boxWord(o.boxCount)}</span></div>`;
+  const placeBoxes = o.places.filter(x => x.kind === 'box').length;
+  const placeSingles = o.placeCount - placeBoxes;
+  const restNote = o.rest === 0 ? ''
+    : REMAINDER_MODE === 'separate'
+      ? (o.rest === 1 ? ' — едет отдельно' : ' — едут отдельно')
+      : ' — в неполной коробке';
+  h += `<div class="crow"><span class="lbl">Остаток шоубоксов</span><span class="formula">${o.sbCount} mod ${p.boxCap} = ${o.rest}</span><span class="val">${sbWord(o.rest)}${restNote}</span></div>`;
+  h += `<div class="crow"><span class="lbl">Грузовых мест</span><span class="formula">${placeBoxes} + ${placeSingles} = ${o.placeCount}</span><span class="val">${placeWord(o.placeCount)}</span></div>`;
+  if (o.oddInBox) {
+    h += '<p class="note" style="margin:8px 0 0">Неполный шоубокс попал в коробку: остатка нет — все шоубоксы вошли в полные коробки. Вес коробки ниже посчитан по фактическому содержимому.</p>';
+  }
+  h += '</div>';
+
+  /* Шаг 2 */
+  h += '<div class="step"><h3>Шаг 2. Вес грузовых мест</h3>';
+  h += '<table><thead><tr><th>Место</th><th>Что едет</th><th class="r">Физический, кг</th><th class="r">Объёмный, кг</th><th class="r">Расчётный, кг</th></tr></thead><tbody>';
+  o.places.forEach((pl, i) => {
+    const phys = pl.physG === null ? '<span class="nodata">нет данных</span>' : fmtKg(pl.physG / 1000);
+    const billed = (pl.approx ? '<span class="ge">≥ </span>' : '') + fmtKg(pl.billedKg);
+    h += `<tr><td>${i + 1}</td><td style="white-space:normal">${placeLabel(pl, p)}</td><td class="r">${phys}</td><td class="r">${fmtKg(pl.volKg)}</td><td class="r">${billed}</td></tr>`;
+  });
+  const totPhys = o.totPhysG === null ? '<span class="nodata">данные неполные</span>' : fmtKg(o.totPhysG / 1000);
+  const totBilled = (o.approxAny ? '<span class="ge">≥ </span>' : '') + fmtKg(o.totBilled);
+  h += `<tr class="total"><td>Итого</td><td>${placeWord(o.placeCount)}</td><td class="r">${totPhys}</td><td class="r">${fmtKg(o.totVol)}</td><td class="r">${totBilled}</td></tr>`;
+  h += '</tbody></table>';
+  h += `<p class="note" style="margin:9px 0 0">Объёмный вес = Д × Ш × В / ${fmtDim(p.divisor)}. Расчётный — больший из двух весов.`;
+  if (o.approxAny) h += ' Пока физический вес неизвестен, расчётный показан по объёмному — знак ≥ значит «не меньше».';
+  h += '</p></div>';
+
+  /* Шаг 3 */
+  h += '<div class="step"><h3>Шаг 3. Доплата за доставку</h3>';
+  if (cost === null) {
+    h += '<div class="msg">Введите себестоимость доставки, чтобы посчитать доплату.</div></div>';
+    out.innerHTML = h;
+    return;
+  }
+  const m = computeMoney(jars, cost, p);
+  h += `<div class="crow"><span class="lbl">Субсидия</span><span class="formula">${jars} × ${fmtRub(p.subsidy)} = ${fmtRub(m.subsidy)}</span><span class="val">${fmtRub(m.subsidy)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Разница</span><span class="formula">${fmtRub(cost)} − ${fmtRub(m.subsidy)} = ${fmtRub(m.diff)}</span><span class="val">${fmtRub(m.diff)} ₽</span></div>`;
+  if (m.diff <= 0) {
+    h += `<div class="crow"><span class="lbl">Доплата</span><span class="formula">разница ≤ 0</span><span class="val">0 ₽</span></div>`;
+  } else {
+    h += `<div class="crow"><span class="lbl">Округление вверх до кратного ${fmtRub(p.roundStep)} ₽</span><span class="formula">ceil(${fmtRub(m.diff)} / ${fmtRub(p.roundStep)}) × ${fmtRub(p.roundStep)} = ${fmtRub(m.rounded)}</span><span class="val">${fmtRub(m.rounded)} ₽</span></div>`;
+    h += `<div class="crow"><span class="lbl">Не меньше минимума</span><span class="formula">max(${fmtRub(p.minPay)}; ${fmtRub(m.rounded)}) = ${fmtRub(m.pay)}</span><span class="val">${fmtRub(m.pay)} ₽</span></div>`;
+  }
+  h += `<div class="result-chip">Доплата клиента: ${fmtRub(m.pay)} ₽`;
+  h += m.pay === 0
+    ? '<small>субсидия полностью покрыла доставку</small>'
+    : `<small>субсидия ${fmtRub(m.subsidy)} ₽ покрыла часть себестоимости ${fmtRub(cost)} ₽</small>`;
+  h += '</div></div>';
+
+  out.innerHTML = h;
+}
+
+function renderTable(cost, p, selectedJars) {
+  const rows = [];
+  let prev = null, prevPay = null, anyOddInBox = false;
+
+  for (let n = 1; n <= 24; n++) {
+    const o = computeOrder(n, p);
+    const m = cost === null ? null : computeMoney(n, cost, p);
+
+    const jumpPlaces = prev !== null && o.placeCount !== prev.placeCount;
+    const jumpPay = m !== null && prevPay !== null && prevPay > 0 && m.pay === 0;
+    if (o.oddInBox) anyOddInBox = true;
+
+    const billed = (o.approxAny ? '<span class="ge">≥ </span>' : '') + fmtKg(o.totBilled);
+
+    rows.push(`<tr data-jars="${n}"${n === selectedJars ? ' class="sel"' : ''}>` +
+      `<td class="r"><b>${n}</b></td>` +
+      `<td class="r">${o.sbCount}</td>` +
+      `<td class="r${jumpPlaces ? ' jump' : ''}">${o.placeCount}</td>` +
+      `<td>${compositionShort(o, p)}${o.oddInBox ? ' *' : ''}</td>` +
+      `<td class="r">${billed}</td>` +
+      (m === null
+        ? '<td class="r">—</td><td class="r">—</td><td class="r">—</td>'
+        : `<td class="r">${fmtRub(m.subsidy)}</td>` +
+          `<td class="r">${fmtRub(m.diff)}</td>` +
+          `<td class="r${jumpPay ? ' jump' : ''}"><b>${fmtRub(m.pay)}</b></td>`) +
+      '</tr>');
+
+    prev = o;
+    prevPay = m === null ? null : m.pay;
+  }
+
+  $('big-tbody').innerHTML = rows.join('');
+  $('tbl-foot').hidden = !anyOddInBox;
+  $('tbl-note').textContent = cost === null
+    ? 'Себестоимость доставки не задана в блоке 2, поэтому денежные колонки пустые.'
+    : `Себестоимость доставки во всех строках одинаковая: ${fmtRub(cost)} ₽ — значение из блока 2. В реальности она растёт с числом мест и весом; здесь фиксируется, чтобы были видны скачки от упаковки и субсидии.`;
+}
+
+function renderWarn(p) {
+  const missing = [];
+  if (p.jarWeight == null) missing.push('вес банки с продуктом');
+  if (p.boxTare == null) missing.push('вес тары коробки');
+  const warn = $('warn');
+  warn.hidden = missing.length === 0;
+  if (missing.length) {
+    warn.innerHTML = `<b>Нет данных: ${missing.join(' и ')}.</b> Физический вес считается не полностью, расчётный вес показан по объёмному — знак ≥ значит «не меньше». Заполните поля в блоке 1, когда данные появятся.`;
+  }
+}
+
+/* ---- Ввод блока 2 ---- */
+
+function readJars() {
+  const raw = $('in-jars').value.trim();
+  if (raw === '') return null;
+  const v = Number(raw);
+  return isFinite(v) && v >= 1 && Number.isInteger(v) ? v : null;
+}
+function readCost() {
+  const raw = $('in-cost').value.trim();
+  if (raw === '') return null;
+  const v = Number(raw.replace(',', '.'));
+  return isFinite(v) && v >= 0 ? v : null;
+}
+
+/* ---- Главный цикл ---- */
+
+function render() {
+  const { p, ok } = readParams();
+  renderWarn(p);
+
+  if (!ok) {
+    const msg = '<div class="msg">Проверьте параметры в блоке 1: подсвеченные поля должны быть заполнены корректными числами.</div>';
+    $('single-out').innerHTML = msg;
+    $('big-tbody').innerHTML = `<tr><td colspan="8">${msg}</td></tr>`;
+    $('tbl-note').textContent = '';
+    $('tbl-foot').hidden = true;
+    return;
+  }
+
+  const jars = readJars();
+  const cost = readCost();
+  renderSingle(jars, cost, p);
+  renderTable(cost, p, jars);
+}
+
+function fillParamInputs() {
+  for (const [key, id] of Object.entries(PARAM_FIELDS)) {
+    $(id).value = DEFAULTS[key] == null ? '' : DEFAULTS[key];
+  }
+}
+
+$('btn-reset').addEventListener('click', () => { fillParamInputs(); render(); });
+document.addEventListener('input', e => { if (e.target.matches('input')) render(); });
+$('big-tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-jars]');
+  if (!tr) return;
+  $('in-jars').value = tr.dataset.jars;
+  render();
+});
+
+fillParamInputs();
+render();
+</script>
+</body>
+</html>
