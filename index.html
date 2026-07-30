@@ -153,7 +153,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
         </span>
       </div>
       <div class="prow"><span class="plabel">Вес тары</span>
-        <span class="pctrl"><input id="p-box-tare" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
+        <span class="pctrl"><input id="p-box-tare" type="number" inputmode="decimal" min="0" step="1"><span class="unit">г</span></span>
       </div>
     </div>
 
@@ -180,6 +180,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       <div class="prow"><span class="plabel">Делитель объёмного веса</span>
         <span class="pctrl"><input id="p-divisor" type="number" inputmode="decimal" min="1" step="100"><span class="unit">см³/кг</span></span>
       </div>
+      <p class="note" style="margin:0">Число, которым перевозчик переводит габариты в килограммы: Д × Ш × В в сантиметрах делится на 5000. Нужно, чтобы лёгкая, но объёмная посылка не ехала по цене своего веса — тариф считается по большему из двух весов.</p>
     </div>
   </div>
 </section>
@@ -238,15 +239,15 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
    2) вес каждого места: физический, объёмный, расчётный;
    3) деньги: субсидия, разница, доплата клиента. */
 
-// Исходные значения. Вес тары коробки и вес банки неизвестны (null):
-// поля пустые, значения по умолчанию не подставляются намеренно.
+// Исходные значения. Вес банки неизвестен (null): поле пустое,
+// значение по умолчанию не подставляется намеренно.
 const DEFAULTS = {
   sbL: 17, sbW: 12, sbH: 9,     // шоубокс, см
   sbTare: 50,                   // тара шоубокса, г
   sbCap: 2,                     // банок в шоубоксе
   boxCap: 3,                    // шоубоксов в коробке
   boxL: 18, boxW: 13, boxH: 28, // коробка, см
-  boxTare: null,                // тара коробки, г — нет данных
+  boxTare: 300,                 // тара коробки, г
   jarWeight: null,              // банка с продуктом, г — нет данных; в реальной системе вес свой у каждого SKU
   subsidy: 238,                 // субсидия на банку, ₽
   roundStep: 10,                // шаг округления доплаты, ₽
@@ -373,7 +374,7 @@ const PARAM_FIELDS = {
   boxCap: 'p-box-cap', boxL: 'p-box-l', boxW: 'p-box-w', boxH: 'p-box-h', boxTare: 'p-box-tare',
   jarWeight: 'p-jar', subsidy: 'p-subsidy', roundStep: 'p-round', minPay: 'p-min', divisor: 'p-divisor'
 };
-const OPTIONAL = new Set(['boxTare', 'jarWeight']);  // могут быть пустыми: данных нет
+const OPTIONAL = new Set(['jarWeight']);  // может быть пустым: данных нет
 const INT_MIN1 = new Set(['sbCap', 'boxCap']);       // целые, не меньше 1
 const POSITIVE = new Set(['sbL', 'sbW', 'sbH', 'boxL', 'boxW', 'boxH', 'divisor', 'roundStep']);
 
@@ -553,7 +554,6 @@ function renderTable(cost, p, selectedJars) {
 function renderWarn(p) {
   const missing = [];
   if (p.jarWeight == null) missing.push('вес банки с продуктом');
-  if (p.boxTare == null) missing.push('вес тары коробки');
   const warn = $('warn');
   warn.hidden = missing.length === 0;
   if (missing.length) {
