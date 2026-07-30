@@ -52,6 +52,14 @@ h2{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:600;margi
 .prow input.opt{width:104px}
 .prow input.opt::placeholder{font-size:11.5px;color:rgba(5,19,26,.45)}
 .prow input.opt:placeholder-shown{border-style:dashed;border-color:rgba(209,7,20,.5);background:rgba(209,7,20,.03)}
+/* Подсказка по наведению */
+.tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:5px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--muted);font-size:10px;font-weight:600;line-height:1;cursor:help;vertical-align:middle;user-select:none}
+.tip:hover,.tip:focus{background:var(--sky);border-color:var(--blue-light);color:var(--blue);outline:none}
+.tipbody{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(-3px);width:max-content;max-width:min(270px,78vw);padding:10px 13px;background:var(--ink);color:#fff;border-radius:10px;font-size:11.5px;font-weight:400;line-height:1.5;text-align:left;white-space:normal;text-transform:none;letter-spacing:normal;opacity:0;visibility:hidden;transition:opacity .14s ease,transform .14s ease,visibility .14s;box-shadow:0 8px 24px rgba(5,19,26,.2);pointer-events:none;z-index:20}
+/* стрелка привязана к иконке, а не к тексту: текст может съезжать от края экрана */
+.tip::after{content:"";position:absolute;top:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:var(--ink);opacity:0;visibility:hidden;transition:opacity .14s ease,visibility .14s;z-index:21}
+.tip:hover .tipbody,.tip:focus .tipbody{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+.tip:hover::after,.tip:focus::after{opacity:1;visibility:visible}
 .dims{display:flex;align-items:center;gap:3px}
 .dims input{width:46px;padding-left:4px;padding-right:5px}
 .dims .x{color:var(--muted);font-size:11px}
@@ -159,28 +167,26 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
 
     <div class="pgroup">
       <h3>Банка</h3>
-      <div class="prow"><span class="plabel">Вес банки с продуктом</span>
+      <div class="prow"><span class="plabel">Вес банки с продуктом<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">У каждого SKU вес свой. Здесь для простоты одно число на весь заказ, в реальной системе вес берётся по каждому SKU из заказа.</span></span></span>
         <span class="pctrl"><input id="p-jar" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
       </div>
-      <p class="note" style="margin:2px 0 0"><b>У каждого SKU вес свой.</b> Здесь для простоты одно число на весь заказ; в реальной системе вес берётся по каждому SKU из заказа.</p>
+      <p class="note" style="margin:2px 0 0">У каждого SKU вес свой</p>
     </div>
 
     <div class="pgroup">
       <h3>Доставка</h3>
-      <div class="prow"><span class="plabel">Субсидия на банку</span>
+      <div class="prow"><span class="plabel">Субсидия на банку<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Часть себестоимости доставки, которую компания берёт на себя, за каждую банку заказа. Остальное клиент доплачивает.</span></span></span>
         <span class="pctrl"><input id="p-subsidy" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
       </div>
-      <p class="note" style="margin:0 0 4px">Субсидия — часть себестоимости доставки, которую компания берёт на себя, за каждую банку заказа.</p>
       <div class="prow"><span class="plabel">Шаг округления доплаты</span>
         <span class="pctrl"><input id="p-round" type="number" inputmode="decimal" min="1" step="1"><span class="unit">₽</span></span>
       </div>
       <div class="prow"><span class="plabel">Минимальная доплата</span>
         <span class="pctrl"><input id="p-min" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
       </div>
-      <div class="prow"><span class="plabel">Делитель объёмного веса</span>
+      <div class="prow"><span class="plabel">Делитель объёмного веса<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Число, которым перевозчик переводит габариты в килограммы: Д × Ш × В в сантиметрах делится на делитель. Нужно, чтобы лёгкая, но объёмная посылка не ехала по цене своего веса — тариф считается по большему из двух весов. 5000 — норматив СДЭК для большинства тарифов, у других перевозчиков бывает 4000 или 6000: чем меньше делитель, тем дороже обходится объём.</span></span></span>
         <span class="pctrl"><input id="p-divisor" type="number" inputmode="decimal" min="1" step="100"><span class="unit">см³/кг</span></span>
       </div>
-      <p class="note" style="margin:0">Число, которым перевозчик переводит габариты в килограммы: Д × Ш × В в сантиметрах делится на 5000. Нужно, чтобы лёгкая, но объёмная посылка не ехала по цене своего веса — тариф считается по большему из двух весов.</p>
     </div>
   </div>
 </section>
@@ -473,7 +479,12 @@ function renderSingle(jars, cost, p) {
 
   /* Шаг 2 */
   h += '<div class="step"><h3>Шаг 2. Вес грузовых мест</h3>';
-  h += '<table><thead><tr><th>Место</th><th>Что едет</th><th class="r">Физический, кг</th><th class="r">Объёмный, кг</th><th class="r">Расчётный, кг</th></tr></thead><tbody>';
+  const tip = text => `<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">${text}</span></span>`;
+  h += '<table><thead><tr><th>Место</th><th>Что едет</th>' +
+    `<th class="r">Физический, кг${tip('Сколько место весит на самом деле: банки, тара шоубоксов и тара коробки. Именно это число вместе с габаритами уходит в СДЭК.')}</th>` +
+    `<th class="r">Объёмный, кг${tip(`Сколько место «весит» по своему размеру: Д × Ш × В / ${fmtDim(p.divisor)}. Так перевозчик учитывает, что посылка занимает место в машине.`)}</th>` +
+    `<th class="r">Расчётный, кг${tip('Больший из физического и объёмного — по нему перевозчик считает цену. СДЭК определяет его сам, здесь он показан для наглядности.')}</th>` +
+    '</tr></thead><tbody>';
   o.places.forEach((pl, i) => {
     const phys = pl.physG === null ? '<span class="nodata">нет данных</span>' : fmtKg(pl.physG / 1000);
     const billed = (pl.approx ? '<span class="ge">≥ </span>' : '') + fmtKg(pl.billedKg);
@@ -483,9 +494,9 @@ function renderSingle(jars, cost, p) {
   const totBilled = (o.approxAny ? '<span class="ge">≥ </span>' : '') + fmtKg(o.totBilled);
   h += `<tr class="total"><td>Итого</td><td>${placeWord(o.placeCount)}</td><td class="r">${totPhys}</td><td class="r">${fmtKg(o.totVol)}</td><td class="r">${totBilled}</td></tr>`;
   h += '</tbody></table>';
-  h += `<p class="note" style="margin:9px 0 0">Объёмный вес = Д × Ш × В / ${fmtDim(p.divisor)}. Расчётный — больший из двух весов.`;
-  if (o.approxAny) h += ' Пока физический вес неизвестен, расчётный показан по объёмному — знак ≥ значит «не меньше».';
-  h += ' Вес банки в прототипе один на весь заказ; в реальной системе он свой у каждого SKU.';
+  h += '<p class="note" style="margin:9px 0 0">В СДЭК уходят габариты и физический вес каждого места — объёмный и расчётный вес он считает сам и возвращает готовую себестоимость. Здесь они показаны, чтобы было видно, за что именно платим: за вес или за объём.';
+  if (o.approxAny) h += ' Пока вес банки неизвестен, физический вес посчитать нельзя, а расчётный показан по объёмному — знак ≥ значит «не меньше».';
+  h += ' Вес банки в прототипе один на весь заказ, в реальной системе он свой у каждого SKU.';
   h += '</p></div>';
 
   /* Шаг 3 */
@@ -602,6 +613,35 @@ function fillParamInputs() {
     $(id).value = DEFAULTS[key] == null ? '' : DEFAULTS[key];
   }
 }
+
+// Подсказки: сдвигаем всплывающий текст, если он вылезает за край экрана
+function placeTip(tip) {
+  const body = tip.querySelector('.tipbody');
+  if (!body) return;
+  const pad = 10;
+  // ширина макета, а не окна: на мобильных они расходятся
+  const vw = document.documentElement.clientWidth || window.innerWidth;
+  let shift = 0;
+  body.style.marginLeft = '0px';
+  // два прохода: после сдвига пересчитываем остаток, чтобы попасть точно
+  for (let pass = 0; pass < 2; pass++) {
+    const r = body.getBoundingClientRect();
+    let delta = 0;
+    if (r.left < pad) delta = pad - r.left;
+    else if (r.right > vw - pad) delta = vw - pad - r.right;
+    if (Math.abs(delta) < 0.5) break;
+    shift += delta;
+    body.style.marginLeft = Math.round(shift) + 'px';
+  }
+}
+document.addEventListener('mouseover', e => {
+  const tip = e.target.closest && e.target.closest('.tip');
+  if (tip) placeTip(tip);
+});
+document.addEventListener('focusin', e => {
+  const tip = e.target.closest && e.target.closest('.tip');
+  if (tip) placeTip(tip);
+});
 
 $('btn-reset').addEventListener('click', () => { fillParamInputs(); render(); });
 document.addEventListener('input', e => { if (e.target.matches('input')) render(); });
