@@ -182,7 +182,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
 
     <div class="pgroup">
       <h3>Транспортная коробка</h3>
-      <div class="prow"><span class="plabel">Шоубоксов внутри</span>
+      <div class="prow"><span class="plabel">Шоубоксов внутри<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Сколько шоубоксов помещается в одну коробку. Один шоубокс едет без коробки, отдельным грузовым местом; от двух и до этого числа — одним местом в коробке.</span></span></span>
         <span class="pctrl"><input id="p-box-cap" type="number" inputmode="numeric" min="1" step="1"><span class="unit">шт</span></span>
       </div>
       <div class="prow stack"><span class="plabel">Габариты Д×Ш×В</span>
@@ -198,6 +198,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       <div class="prow"><span class="plabel">Вес тары</span>
         <span class="pctrl"><input id="p-box-tare" type="number" inputmode="decimal" min="0" step="1"><span class="unit">г</span></span>
       </div>
+      <p class="note" style="margin:2px 0 0" id="box-fit"></p>
     </div>
 
     <div class="pgroup">
@@ -273,7 +274,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
     </table>
   </div>
   <p class="note" style="margin-top:12px">Подсвечены ячейки, где число мест меняется или доплата обнуляется. Клик по строке подставляет её в блок 2.</p>
-  <p class="note" id="tbl-foot" hidden>* последний шоубокс неполный, а остатка нет — он едет внутри коробки, вес коробки посчитан по фактическому содержимому.</p>
+  <p class="note" id="tbl-foot" hidden>* в последнем шоубоксе одна банка, и он едет внутри коробки — вес коробки посчитан по фактическому содержимому.</p>
 </section>
 
 </div>
@@ -294,8 +295,8 @@ const DEFAULTS = {
   sbL: 17, sbW: 12, sbH: 9,     // шоубокс, см
   sbTare: 50,                   // тара шоубокса, г
   sbCap: 2,                     // банок в шоубоксе
-  boxCap: 3,                    // шоубоксов в коробке
-  boxL: 18, boxW: 13, boxH: 28, // коробка, см
+  boxCap: 5,                    // шоубоксов в коробке
+  boxL: 18, boxW: 13, boxH: 46, // коробка, см — стопка из 5 шоубоксов (9 × 5) плюс стенки
   boxTare: 300,                 // тара коробки, г
   jarWeight: null,              // банка с продуктом, г — нет данных; в реальной системе вес свой у каждого SKU
   subsidy: 238,                 // субсидия на банку, ₽
@@ -303,13 +304,10 @@ const DEFAULTS = {
   minPay: 50                    // минимальная доплата, ₽
 };
 
-// Режим упаковки остатка — шоубоксов, не набравшихся в полную коробку:
-//   'separate' — каждый шоубокс остатка едет отдельным грузовым местом (текущий вариант);
-//   'topup'    — остаток кладётся в ещё одну, неполную коробку.
-// Веса и деньги от режима не зависят: любое место считается по его
-// фактическому содержимому, а подписи в интерфейсе строятся от готового
-// списка мест, поэтому верны в обоих режимах.
-const REMAINDER_MODE = 'separate';
+// Сколько шоубоксов может ехать без транспортной коробки, отдельными
+// грузовыми местами. По правилу компоновки один шоубокс отправляется как
+// есть, два и больше — в транспортной коробке, пусть и неполной.
+const LOOSE_SHOWBOX_MAX = 1;
 
 /* ---- Шаг 1. Компоновка ---- */
 
@@ -323,13 +321,13 @@ function packShowboxes(jars, sbCap) {
   return list; // сколько банок в каждом шоубоксе, полные первыми
 }
 
-// Шоубоксы по грузовым местам. Коробки набираются первыми и с начала
-// списка, поэтому неполный шоубокс (он последний) попадает в остаток,
-// когда остаток ненулевой. Крайний случай: последний шоубокс неполный,
-// а остаток нулевой (при исходных значениях это 5, 11, 17, 23 банки) —
-// ему некуда деться, кроме последней коробки; её вес считается
-// по фактическому числу банок.
-function buildPlaces(showboxes, boxCap, mode) {
+// Шоубоксы по грузовым местам. Сначала набираются полные коробки,
+// потом решается судьба остатка: один шоубокс едет отдельным местом
+// как есть, два и больше — в транспортной коробке, пусть и неполной.
+// Неполный шоубокс (когда банок нечётное число) всегда последний,
+// поэтому оказывается либо голым местом, либо внутри последней коробки;
+// вес такого места считается по фактическому числу банок.
+function buildPlaces(showboxes, boxCap, looseMax) {
   const fullBoxes = Math.floor(showboxes.length / boxCap);
   const places = [];
   let i = 0;
@@ -339,10 +337,10 @@ function buildPlaces(showboxes, boxCap, mode) {
   }
   const rest = showboxes.slice(i);
   if (rest.length) {
-    if (mode === 'topup') {
-      places.push({ kind: 'box', showboxes: rest }); // неполная коробка
-    } else {
+    if (rest.length <= looseMax) {
       rest.forEach(sb => places.push({ kind: 'showbox', showboxes: [sb] }));
+    } else {
+      places.push({ kind: 'box', showboxes: rest }); // неполная коробка
     }
   }
   return places;
@@ -371,7 +369,7 @@ function computeOrder(jars, p) {
   const lastJars = showboxes[sbCount - 1];
   const boxCount = Math.floor(sbCount / p.boxCap);
   const rest = sbCount % p.boxCap;
-  const places = buildPlaces(showboxes, p.boxCap, REMAINDER_MODE);
+  const places = buildPlaces(showboxes, p.boxCap, LOOSE_SHOWBOX_MAX);
 
   for (const pl of places) {
     pl.dims = placeDims(pl, p);
@@ -506,7 +504,7 @@ function renderSteps12(jars, p) {
 
   /* Шаг 1 — компоновка: сначала картинкой, формулы под спойлером */
   let h = '<div class="step"><h3>Шаг 1. Компонуем заказ по грузовым местам</h3>';
-  h += `<p class="lead">Каждые ${p.sbCap} ${plural(p.sbCap, 'банка', 'банки', 'банок')} — один шоубокс, каждые ${p.boxCap} ${plural(p.boxCap, 'шоубокс', 'шоубокса', 'шоубоксов')} — одна транспортная коробка. Шоубоксы, которые не набрались на полную коробку, едут отдельными грузовыми местами.</p>`;
+  h += `<p class="lead">Каждые ${p.sbCap} ${plural(p.sbCap, 'банка', 'банки', 'банок')} — один шоубокс. Один шоубокс едет отдельным грузовым местом как есть, от 2 до ${p.boxCap} шоубоксов — одним местом в транспортной коробке.</p>`;
 
   if (o.sbCount <= 40) { // на очень больших заказах картинка перестаёт читаться
     const sboxes = o.places.flatMap(pl => pl.showboxes).map(n => sboxHtml(n, p.sbCap)).join('');
@@ -523,19 +521,19 @@ function renderSteps12(jars, p) {
   }
 
   if (o.oddInBox) {
-    h += '<p class="note" style="margin:8px 0 0">Неполный шоубокс попал в коробку: остатка нет — все шоубоксы вошли в полные коробки. Вес коробки ниже посчитан по фактическому содержимому.</p>';
+    h += '<p class="note" style="margin:8px 0 0">В последнем шоубоксе только одна банка, и он едет внутри коробки. Вес коробки ниже посчитан по фактическому содержимому, а не по полной вместимости.</p>';
   }
 
   const restNote = o.rest === 0 ? ''
-    : REMAINDER_MODE === 'separate'
-      ? (o.rest === 1 ? ' — едет отдельно' : ' — едут отдельно')
-      : ' — в неполной коробке';
+    : o.rest <= LOOSE_SHOWBOX_MAX
+      ? ' — едет отдельным местом, без коробки'
+      : ' — одной неполной коробкой';
   const placeBoxes = o.places.filter(x => x.kind === 'box').length;
   const placeSingles = o.placeCount - placeBoxes;
   h += '<details class="formulas"><summary>Как это считается</summary>';
   h += `<div class="crow"><span class="lbl">Шоубоксов</span><span class="formula">ceil(${jars} / ${p.sbCap}) = ${o.sbCount}</span><span class="val">${sbWord(o.sbCount)}</span></div>`;
   h += `<div class="crow"><span class="lbl">В последнем шоубоксе</span><span class="formula">${jars} − (${o.sbCount} − 1) × ${p.sbCap} = ${o.lastJars}</span><span class="val">${jarsWord(o.lastJars)}${o.lastJars < p.sbCap ? ' — неполный' : ''}</span></div>`;
-  h += `<div class="crow"><span class="lbl">Коробок</span><span class="formula">floor(${o.sbCount} / ${p.boxCap}) = ${o.boxCount}</span><span class="val">${boxWord(o.boxCount)}</span></div>`;
+  h += `<div class="crow"><span class="lbl">Полных коробок</span><span class="formula">floor(${o.sbCount} / ${p.boxCap}) = ${o.boxCount}</span><span class="val">${boxWord(o.boxCount)}</span></div>`;
   h += `<div class="crow"><span class="lbl">Остаток шоубоксов</span><span class="formula">${o.sbCount} mod ${p.boxCap} = ${o.rest}</span><span class="val">${sbWord(o.rest)}${restNote}</span></div>`;
   h += `<div class="crow"><span class="lbl">Грузовых мест</span><span class="formula">${placeBoxes} + ${placeSingles} = ${o.placeCount}</span><span class="val">${placeWord(o.placeCount)}</span></div>`;
   h += '</details>';
@@ -639,6 +637,23 @@ function renderTable(cost, p, selectedJars) {
     : `Себестоимость от СДЭК во всех строках одинаковая: ${fmtRub(cost)} ₽ — значение из блока 2. В реальности она растёт с числом мест и весом; здесь фиксируется, чтобы были видны скачки от компоновки и субсидии.`;
 }
 
+// Сходятся ли габариты коробки с её заявленной вместимостью.
+// Проверка грубая, по объёму: если не сходится даже так, размеры точно неверные.
+function renderBoxFit(p) {
+  const el = $('box-fit');
+  if ([p.boxL, p.boxW, p.boxH, p.sbL, p.sbW, p.sbH, p.boxCap].some(v => v == null)) {
+    el.textContent = '';
+    return;
+  }
+  const boxV = p.boxL * p.boxW * p.boxH;
+  const needV = p.boxCap * p.sbL * p.sbW * p.sbH;
+  if (boxV < needV) {
+    el.innerHTML = `<b style="color:var(--error)">Габариты не вмещают ${sbWord(p.boxCap)}:</b> объём коробки ${fmtNum(Math.round(boxV))} см³, а нужно минимум ${fmtNum(Math.round(needV))} см³.`;
+  } else {
+    el.textContent = `Габариты расчётные: стопка из ${sbWord(p.boxCap)} плюс стенки. Поставщиком не подтверждены.`;
+  }
+}
+
 function renderWarn(p) {
   const warn = $('warn');
   warn.hidden = p.jarWeight != null;
@@ -667,6 +682,7 @@ function readCost() {
 function render() {
   const { p, ok } = readParams();
   renderWarn(p);
+  renderBoxFit(p);
 
   if (!ok) {
     const msg = '<div class="msg">Проверьте параметры в блоке 1: подсвеченные поля должны быть заполнены корректными числами.</div>';
