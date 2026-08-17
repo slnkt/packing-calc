@@ -113,7 +113,8 @@ h2{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:600;margi
 .cost-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 12px;margin-bottom:12px;background:var(--sky);border-radius:10px}
 .cost-row label{font-size:13px;font-weight:600}
 .cost-row input{width:120px;padding:7px 11px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;text-align:right}
-.cost-row input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(16,152,212,.15)}
+.cost-row input:focus,.cost-row select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(16,152,212,.15)}
+.cost-row select{padding:7px 9px;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;cursor:pointer}
 .cost-row .note{flex:1 1 240px;min-width:0}
 
 table{border-collapse:collapse;width:100%;font-size:13px}
@@ -220,6 +221,9 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       <div class="prow"><span class="plabel">Минимальная доплата</span>
         <span class="pctrl"><input id="p-min" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
       </div>
+      <div class="prow"><span class="plabel">Ставка НДС<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Клиент платит доплату с НДС, поэтому субсидия и доплата считаются в деньгах с НДС. Себестоимость от СДЭК приводится к той же базе: переключатель рядом с полем в шаге 3 говорит, пришла она с налогом или без.</span></span></span>
+        <span class="pctrl"><input id="p-vat" type="number" inputmode="decimal" min="0" step="1"><span class="unit">%</span></span>
+      </div>
     </div>
   </div>
 </section>
@@ -245,7 +249,11 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
         <label for="in-cost">Себестоимость от СДЭК</label>
         <input id="in-cost" type="number" inputmode="decimal" min="0" step="1" value="250">
         <span class="unit">₽</span>
-        <span class="note">Ответ на данные из шага 2. Здесь вводится вручную, в реальной системе приходит из API.</span>
+        <select id="in-cost-vat" aria-label="Себестоимость от СДЭК приходит с НДС или без">
+          <option value="gross" selected>с НДС</option>
+          <option value="net">без НДС</option>
+        </select>
+        <span class="note">Ответ на данные из шага 2. Здесь вводится вручную, в реальной системе приходит из API. Уточните по договору со СДЭК, включён ли НДС в тариф.</span>
       </div>
       <div id="step3-calc"></div>
     </div>
@@ -301,7 +309,8 @@ const DEFAULTS = {
   jarWeight: null,              // банка с продуктом, г — нет данных; в реальной системе вес свой у каждого SKU
   subsidy: 238,                 // субсидия на банку, ₽
   roundStep: 10,                // шаг округления доплаты, ₽
-  minPay: 50                    // минимальная доплата, ₽
+  minPay: 50,                   // минимальная доплата, ₽
+  vatRate: 22                   // ставка НДС, %
 };
 
 // Сколько шоубоксов может ехать без транспортной коробки, отдельными
@@ -389,16 +398,26 @@ function computeOrder(jars, p) {
 
 /* ---- Шаг 3. Доплата ---- */
 
-function computeMoney(jars, cost, p) {
+// Клиент платит с НДС, поэтому и субсидия, и доплата считаются в деньгах
+// с НДС. Себестоимость от СДЭК приводится к той же базе: если она пришла
+// без НДС, налог начисляется сверху; если с НДС — выделяется изнутри.
+function computeMoney(jars, cost, p, costHasVat) {
+  const rate = p.vatRate / 100;
+  const costNet = costHasVat ? cost / (1 + rate) : cost;
+  const costGross = costHasVat ? cost : cost * (1 + rate);
+  const vatOnCost = costGross - costNet;
+
   const subsidy = jars * p.subsidy;
-  const diff = cost - subsidy;
+  const diff = costGross - subsidy;
   let pay = 0, rounded = null;
   if (diff > 0) {
     // −1e-9 гасит хвосты плавающей точки, чтобы ровное значение не прыгало на шаг вверх
     rounded = p.roundStep > 0 ? Math.ceil((diff - 1e-9) / p.roundStep) * p.roundStep : diff;
     pay = Math.max(p.minPay, rounded);
   }
-  return { subsidy, diff, pay, rounded };
+  const vatInPay = pay * rate / (1 + rate); // НДС внутри доплаты, для чека
+
+  return { rate, costNet, costGross, vatOnCost, subsidy, diff, pay, rounded, vatInPay };
 }
 
 /* ================= Интерфейс ================= */
@@ -408,7 +427,7 @@ const $ = id => document.getElementById(id);
 const PARAM_FIELDS = {
   sbL: 'p-sb-l', sbW: 'p-sb-w', sbH: 'p-sb-h', sbTare: 'p-sb-tare', sbCap: 'p-sb-cap',
   boxCap: 'p-box-cap', boxL: 'p-box-l', boxW: 'p-box-w', boxH: 'p-box-h', boxTare: 'p-box-tare',
-  jarWeight: 'p-jar', subsidy: 'p-subsidy', roundStep: 'p-round', minPay: 'p-min'
+  jarWeight: 'p-jar', subsidy: 'p-subsidy', roundStep: 'p-round', minPay: 'p-min', vatRate: 'p-vat'
 };
 const OPTIONAL = new Set(['jarWeight']);       // может быть пустым: данных нет
 const INT_MIN1 = new Set(['sbCap', 'boxCap']); // целые, не меньше 1
@@ -562,7 +581,7 @@ function renderSteps12(jars, p) {
 
 /* ---- Шаг 3 ---- */
 
-function renderStep3(jars, cost, p) {
+function renderStep3(jars, cost, p, costHasVat) {
   const out = $('step3-calc');
 
   if (jars === null) {
@@ -574,10 +593,16 @@ function renderStep3(jars, cost, p) {
     return;
   }
 
-  const m = computeMoney(jars, cost, p);
+  const m = computeMoney(jars, cost, p, costHasVat);
   let h = '';
+  if (p.vatRate > 0) {
+    h += costHasVat
+      ? `<div class="crow"><span class="lbl">В том числе НДС ${fmtRub(p.vatRate)}%</span><span class="formula">${fmtRub(cost)} × ${fmtRub(p.vatRate)} / ${fmtRub(100 + p.vatRate)} = ${fmtRub(m.vatOnCost)}</span><span class="val">${fmtRub(m.vatOnCost)} ₽</span></div>`
+      : `<div class="crow"><span class="lbl">НДС ${fmtRub(p.vatRate)}% сверху</span><span class="formula">${fmtRub(cost)} × ${fmtRub(p.vatRate)} / 100 = ${fmtRub(m.vatOnCost)}</span><span class="val">${fmtRub(m.vatOnCost)} ₽</span></div>`;
+    h += `<div class="crow"><span class="lbl">Себестоимость с НДС</span><span class="formula">${fmtRub(m.costNet)} + ${fmtRub(m.vatOnCost)} = ${fmtRub(m.costGross)}</span><span class="val">${fmtRub(m.costGross)} ₽</span></div>`;
+  }
   h += `<div class="crow"><span class="lbl">Субсидия</span><span class="formula">${jars} × ${fmtRub(p.subsidy)} = ${fmtRub(m.subsidy)}</span><span class="val">${fmtRub(m.subsidy)} ₽</span></div>`;
-  h += `<div class="crow"><span class="lbl">Разница</span><span class="formula">${fmtRub(cost)} − ${fmtRub(m.subsidy)} = ${fmtRub(m.diff)}</span><span class="val">${fmtRub(m.diff)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Разница</span><span class="formula">${fmtRub(m.costGross)} − ${fmtRub(m.subsidy)} = ${fmtRub(m.diff)}</span><span class="val">${fmtRub(m.diff)} ₽</span></div>`;
   if (m.diff <= 0) {
     h += `<div class="crow"><span class="lbl">Доплата</span><span class="formula">разница ≤ 0</span><span class="val">0 ₽</span></div>`;
   } else {
@@ -589,9 +614,13 @@ function renderStep3(jars, cost, p) {
     }
   }
   h += `<div class="result-chip">Доплата клиента: ${fmtRub(m.pay)} ₽`;
-  h += m.pay === 0
-    ? '<small>субсидия полностью покрыла доставку</small>'
-    : `<small>субсидия ${fmtRub(m.subsidy)} ₽ покрыла часть себестоимости ${fmtRub(cost)} ₽</small>`;
+  if (m.pay === 0) {
+    h += '<small>субсидия полностью покрыла доставку</small>';
+  } else {
+    h += p.vatRate > 0
+      ? `<small>в том числе НДС ${fmtRub(p.vatRate)}% — ${fmtRub(m.vatInPay)} ₽</small>`
+      : `<small>субсидия ${fmtRub(m.subsidy)} ₽ покрыла часть себестоимости ${fmtRub(m.costGross)} ₽</small>`;
+  }
   h += '</div>';
 
   out.innerHTML = h;
@@ -599,13 +628,13 @@ function renderStep3(jars, cost, p) {
 
 /* ---- Таблица 1–24 ---- */
 
-function renderTable(cost, p, selectedJars) {
+function renderTable(cost, p, selectedJars, costHasVat) {
   const rows = [];
   let prev = null, prevPay = null, anyOddInBox = false;
 
   for (let n = 1; n <= 24; n++) {
     const o = computeOrder(n, p);
-    const m = cost === null ? null : computeMoney(n, cost, p);
+    const m = cost === null ? null : computeMoney(n, cost, p, costHasVat);
 
     const jumpPlaces = prev !== null && o.placeCount !== prev.placeCount;
     const jumpPay = m !== null && prevPay !== null && prevPay > 0 && m.pay === 0;
@@ -632,9 +661,15 @@ function renderTable(cost, p, selectedJars) {
 
   $('big-tbody').innerHTML = rows.join('');
   $('tbl-foot').hidden = !anyOddInBox;
-  $('tbl-note').textContent = cost === null
-    ? 'Себестоимость от СДЭК не задана в блоке 2, поэтому денежные колонки пустые.'
-    : `Себестоимость от СДЭК во всех строках одинаковая: ${fmtRub(cost)} ₽ — значение из блока 2. В реальности она растёт с числом мест и весом; здесь фиксируется, чтобы были видны скачки от компоновки и субсидии.`;
+  if (cost === null) {
+    $('tbl-note').textContent = 'Себестоимость от СДЭК не задана в блоке 2, поэтому денежные колонки пустые.';
+  } else {
+    const gross = computeMoney(1, cost, p, costHasVat).costGross;
+    const vatNote = p.vatRate > 0
+      ? ` С НДС ${fmtRub(p.vatRate)}% это ${fmtRub(gross)} ₽ — разница и доплата считаются от этой суммы.`
+      : '';
+    $('tbl-note').textContent = `Себестоимость от СДЭК во всех строках одинаковая: ${fmtRub(cost)} ₽ ${costHasVat ? 'с НДС' : 'без НДС'} — значение из блока 2.${vatNote} В реальности она растёт с числом мест и весом; здесь фиксируется, чтобы были видны скачки от компоновки и субсидии.`;
+  }
 }
 
 // Сходятся ли габариты коробки с её заявленной вместимостью.
@@ -676,6 +711,7 @@ function readCost() {
   const v = Number(raw.replace(',', '.'));
   return isFinite(v) && v >= 0 ? v : null;
 }
+const readCostHasVat = () => $('in-cost-vat').value === 'gross';
 
 /* ---- Главный цикл ---- */
 
@@ -696,9 +732,10 @@ function render() {
 
   const jars = readJars();
   const cost = readCost();
+  const costHasVat = readCostHasVat();
   renderSteps12(jars, p);
-  renderStep3(jars, cost, p);
-  renderTable(cost, p, jars);
+  renderStep3(jars, cost, p, costHasVat);
+  renderTable(cost, p, jars, costHasVat);
 }
 
 function fillParamInputs() {
@@ -737,7 +774,8 @@ document.addEventListener('focusin', e => {
 });
 
 $('btn-reset').addEventListener('click', () => { fillParamInputs(); render(); });
-document.addEventListener('input', e => { if (e.target.matches('input')) render(); });
+document.addEventListener('input', e => { if (e.target.matches('input, select')) render(); });
+document.addEventListener('change', e => { if (e.target.matches('select')) render(); });
 $('big-tbody').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-jars]');
   if (!tr) return;
