@@ -208,7 +208,7 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
         <span class="pctrl"><input id="p-jar" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
       </div>
       <p class="note" style="margin:2px 0 4px">У каждого SKU вес свой</p>
-      <div class="prow"><span class="plabel">Объявленная ценность<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Стоимость банки, которую заявляем перевозчику. От неё СДЭК считает страховой сбор, поэтому сбор растёт вместе с суммой заказа.</span></span></span>
+      <div class="prow"><span class="plabel">Стоимость без скидок<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Полная цена банки, без скидок и промокодов. Из неё складывается объявленная ценность заказа, от которой СДЭК считает страховой сбор. Скидка клиенту объявленную ценность не уменьшает.</span></span></span>
         <span class="pctrl"><input id="p-jar-value" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
       </div>
     </div>
@@ -321,7 +321,7 @@ const DEFAULTS = {
   boxL: 18, boxW: 13, boxH: 46, // коробка, см — стопка из 5 шоубоксов (9 × 5) плюс стенки
   boxTare: 300,                 // тара коробки, г
   jarWeight: null,              // банка с продуктом, г — нет данных; в реальной системе вес свой у каждого SKU
-  jarValue: 2390,               // объявленная ценность банки, ₽
+  jarValue: 2390,               // стоимость банки без скидок, ₽ — из неё объявленная ценность
   insuranceRate: 0.75,          // страховой сбор, % от объявленной ценности
   vatRate: 22,                  // ставка НДС, %
   subsidy: 238,                 // субсидия на банку, ₽
@@ -631,7 +631,7 @@ function renderStep3(jars, tariff, p) {
   h += `<div class="crow"><span class="lbl">Сумма услуг без НДС</span><span class="formula">${fmtRub(tariff)} + ${fmtRub(c.insurance)} = ${fmtRub(c.net)}</span><span class="val">${fmtRub(c.net)} ₽</span></div>`;
   h += `<div class="crow"><span class="lbl">НДС ${fmtRub(p.vatRate)}%</span><span class="formula">${fmtRub(c.net)} × ${fmtRub(p.vatRate)}% = ${fmtRub(c.vat)}</span><span class="val">${fmtRub(c.vat)} ₽</span></div>`;
   h += `<div class="crow hit"><span class="lbl">Итого к оплате СДЭК</span><span class="formula">${fmtRub(c.net)} + ${fmtRub(c.vat)} = ${fmtRub(c.gross)}</span><span class="val">${fmtRub(c.gross)} ₽</span></div>`;
-  h += `<p class="note" style="margin:8px 0 0">НДС начисляется и на тариф, и на страховой сбор. Сбор растёт вместе с заказом: он считается от объявленной ценности, а она равна ${fmtRub(p.jarValue)} ₽ за банку.</p>`;
+  h += `<p class="note" style="margin:8px 0 0">НДС начисляется и на тариф, и на страховой сбор. Объявленная ценность считается от полной стоимости банки — ${fmtRub(p.jarValue)} ₽ без скидок, — поэтому скидки и промокоды страховой сбор не уменьшают.</p>`;
 
   out.innerHTML = h;
 }
