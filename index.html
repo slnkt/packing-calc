@@ -733,7 +733,7 @@ function renderBoxFit(p) {
   if (boxV < needV) {
     el.innerHTML = `<b style="color:var(--error)">Габариты не вмещают ${sbWord(p.boxCap)}:</b> объём коробки ${fmtNum(Math.round(boxV))} см³, а нужно минимум ${fmtNum(Math.round(needV))} см³.`;
   } else {
-    el.textContent = `Габариты расчётные: стопка из ${sbWord(p.boxCap)} плюс стенки. Поставщиком не подтверждены.`;
+    el.textContent = `Габариты расчётные: ${sbWord(p.boxCap)} стопкой плюс стенки. Поставщиком не подтверждены.`;
   }
 }
 
