@@ -207,11 +207,24 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       <div class="prow"><span class="plabel">Вес банки с продуктом<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">У каждого SKU вес свой. Здесь для простоты одно число на весь заказ, в реальной системе вес берётся по каждому SKU из заказа.</span></span></span>
         <span class="pctrl"><input id="p-jar" class="opt" type="number" inputmode="decimal" min="0" step="1" placeholder="нет данных"><span class="unit">г</span></span>
       </div>
-      <p class="note" style="margin:2px 0 0">У каждого SKU вес свой</p>
+      <p class="note" style="margin:2px 0 4px">У каждого SKU вес свой</p>
+      <div class="prow"><span class="plabel">Объявленная ценность<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Стоимость банки, которую заявляем перевозчику. От неё СДЭК считает страховой сбор, поэтому сбор растёт вместе с суммой заказа.</span></span></span>
+        <span class="pctrl"><input id="p-jar-value" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
+      </div>
     </div>
 
     <div class="pgroup">
-      <h3>Доплата за доставку</h3>
+      <h3>Себестоимость СДЭК</h3>
+      <div class="prow"><span class="plabel">Страховой сбор<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Процент от объявленной ценности заказа. Начисляется сверх тарифа доставки, до НДС.</span></span></span>
+        <span class="pctrl"><input id="p-insurance" type="number" inputmode="decimal" min="0" step="0.05"><span class="unit">%</span></span>
+      </div>
+      <div class="prow"><span class="plabel">Ставка НДС<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Начисляется на всю сумму услуг СДЭК — и на тариф доставки, и на страховой сбор.</span></span></span>
+        <span class="pctrl"><input id="p-vat" type="number" inputmode="decimal" min="0" step="1"><span class="unit">%</span></span>
+      </div>
+    </div>
+
+    <div class="pgroup">
+      <h3>Доплата клиента</h3>
       <div class="prow"><span class="plabel">Субсидия на банку<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Часть себестоимости доставки, которую компания берёт на себя, за каждую банку заказа. Остальное клиент доплачивает.</span></span></span>
         <span class="pctrl"><input id="p-subsidy" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
       </div>
@@ -220,9 +233,6 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
       </div>
       <div class="prow"><span class="plabel">Минимальная доплата</span>
         <span class="pctrl"><input id="p-min" type="number" inputmode="decimal" min="0" step="1"><span class="unit">₽</span></span>
-      </div>
-      <div class="prow"><span class="plabel">Ставка НДС<span class="tip" tabindex="0"><span aria-hidden="true">?</span><span class="tipbody">Клиент платит доплату с НДС, поэтому субсидия и доплата считаются в деньгах с НДС. Себестоимость от СДЭК приводится к той же базе: переключатель рядом с полем в шаге 3 говорит, пришла она с налогом или без.</span></span></span>
-        <span class="pctrl"><input id="p-vat" type="number" inputmode="decimal" min="0" step="1"><span class="unit">%</span></span>
       </div>
     </div>
   </div>
@@ -243,19 +253,21 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
     <div id="step12"></div>
 
     <div class="step">
-      <h3>Шаг 3. Считаем доплату клиента</h3>
-      <p class="lead">Себестоимость от СДЭК подставляем в нашу формулу: часть покрывает субсидия, остальное доплачивает клиент.</p>
+      <h3>Шаг 3. СДЭК возвращает себестоимость</h3>
+      <p class="lead">К тарифу за перевозку добавляется страховой сбор от объявленной ценности, и на всю сумму начисляется НДС.</p>
       <div class="cost-row">
-        <label for="in-cost">Себестоимость от СДЭК</label>
-        <input id="in-cost" type="number" inputmode="decimal" min="0" step="1" value="250">
-        <span class="unit">₽</span>
-        <select id="in-cost-vat" aria-label="Себестоимость от СДЭК приходит с НДС или без">
-          <option value="gross" selected>с НДС</option>
-          <option value="net">без НДС</option>
-        </select>
-        <span class="note">Ответ на данные из шага 2. Здесь вводится вручную, в реальной системе приходит из API. Уточните по договору со СДЭК, включён ли НДС в тариф.</span>
+        <label for="in-tariff">Тариф доставки</label>
+        <input id="in-tariff" type="number" inputmode="decimal" min="0" step="1" value="100">
+        <span class="unit">₽ без НДС</span>
+        <span class="note">Ответ на данные из шага 2. Здесь вводится вручную, в реальной системе приходит из API.</span>
       </div>
       <div id="step3-calc"></div>
+    </div>
+
+    <div class="step">
+      <h3>Шаг 4. Считаем доплату клиента</h3>
+      <p class="lead">Итог от СДЭК подставляем в нашу формулу: часть покрывает субсидия, остальное доплачивает клиент.</p>
+      <div id="step4-calc"></div>
     </div>
   </div>
 </section>
@@ -273,6 +285,8 @@ tr.total td{font-weight:600;border-top:1.5px solid var(--line);border-bottom:0}
           <th class="r">Мест</th>
           <th>Состав мест</th>
           <th class="r">Вес заказа, г</th>
+          <th class="r">Страховой сбор, ₽</th>
+          <th class="r">Итого СДЭК, ₽</th>
           <th class="r">Субсидия, ₽</th>
           <th class="r">Разница, ₽</th>
           <th class="r">Доплата, ₽</th>
@@ -307,10 +321,12 @@ const DEFAULTS = {
   boxL: 18, boxW: 13, boxH: 46, // коробка, см — стопка из 5 шоубоксов (9 × 5) плюс стенки
   boxTare: 300,                 // тара коробки, г
   jarWeight: null,              // банка с продуктом, г — нет данных; в реальной системе вес свой у каждого SKU
+  jarValue: 2390,               // объявленная ценность банки, ₽
+  insuranceRate: 0.75,          // страховой сбор, % от объявленной ценности
+  vatRate: 22,                  // ставка НДС, %
   subsidy: 238,                 // субсидия на банку, ₽
   roundStep: 10,                // шаг округления доплаты, ₽
-  minPay: 50,                   // минимальная доплата, ₽
-  vatRate: 22                   // ставка НДС, %
+  minPay: 50                    // минимальная доплата, ₽
 };
 
 // Сколько шоубоксов может ехать без транспортной коробки, отдельными
@@ -398,26 +414,39 @@ function computeOrder(jars, p) {
 
 /* ---- Шаг 3. Доплата ---- */
 
-// Клиент платит с НДС, поэтому и субсидия, и доплата считаются в деньгах
-// с НДС. Себестоимость от СДЭК приводится к той же базе: если она пришла
-// без НДС, налог начисляется сверху; если с НДС — выделяется изнутри.
-function computeMoney(jars, cost, p, costHasVat) {
-  const rate = p.vatRate / 100;
-  const costNet = costHasVat ? cost / (1 + rate) : cost;
-  const costGross = costHasVat ? cost : cost * (1 + rate);
-  const vatOnCost = costGross - costNet;
+const kop = v => Math.round(v * 100) / 100; // копейки: СДЭК считает по каждой строке
 
+// Что возвращает СДЭК: тариф за перевозку, страховой сбор от объявленной
+// ценности, и НДС на всю сумму услуг — и на тариф, и на сбор.
+function computeCost(jars, tariff, p) {
+  const declared = jars * p.jarValue;
+  const insurance = kop(declared * p.insuranceRate / 100);
+  const net = kop(tariff + insurance);          // сумма услуг без НДС
+  const vat = kop(net * p.vatRate / 100);
+  const gross = kop(net + vat);                 // итого к оплате
+  return { declared, insurance, net, vat, gross };
+}
+
+// Что считаем мы: сколько из итога СДЭК покрывает субсидия,
+// а сколько доплачивает клиент.
+function computeMoney(jars, gross, p) {
   const subsidy = jars * p.subsidy;
-  const diff = costGross - subsidy;
+  const diff = kop(gross - subsidy);
   let pay = 0, rounded = null;
   if (diff > 0) {
     // −1e-9 гасит хвосты плавающей точки, чтобы ровное значение не прыгало на шаг вверх
     rounded = p.roundStep > 0 ? Math.ceil((diff - 1e-9) / p.roundStep) * p.roundStep : diff;
     pay = Math.max(p.minPay, rounded);
   }
-  const vatInPay = pay * rate / (1 + rate); // НДС внутри доплаты, для чека
+  // НДС внутри доплаты — он уже сидит в цене, которую платит клиент
+  const vatInPay = kop(pay * p.vatRate / (100 + p.vatRate));
+  return { subsidy, diff, pay, rounded, vatInPay };
+}
 
-  return { rate, costNet, costGross, vatOnCost, subsidy, diff, pay, rounded, vatInPay };
+// Начиная с какого тарифа субсидия перестаёт покрывать доставку целиком
+function breakevenTariff(jars, p) {
+  const c = computeCost(jars, 0, p);
+  return kop(jars * p.subsidy / (1 + p.vatRate / 100) - c.insurance);
 }
 
 /* ================= Интерфейс ================= */
@@ -427,7 +456,8 @@ const $ = id => document.getElementById(id);
 const PARAM_FIELDS = {
   sbL: 'p-sb-l', sbW: 'p-sb-w', sbH: 'p-sb-h', sbTare: 'p-sb-tare', sbCap: 'p-sb-cap',
   boxCap: 'p-box-cap', boxL: 'p-box-l', boxW: 'p-box-w', boxH: 'p-box-h', boxTare: 'p-box-tare',
-  jarWeight: 'p-jar', subsidy: 'p-subsidy', roundStep: 'p-round', minPay: 'p-min', vatRate: 'p-vat'
+  jarWeight: 'p-jar', jarValue: 'p-jar-value', insuranceRate: 'p-insurance', vatRate: 'p-vat',
+  subsidy: 'p-subsidy', roundStep: 'p-round', minPay: 'p-min'
 };
 const OPTIONAL = new Set(['jarWeight']);       // может быть пустым: данных нет
 const INT_MIN1 = new Set(['sbCap', 'boxCap']); // целые, не меньше 1
@@ -579,32 +609,56 @@ function renderSteps12(jars, p) {
   return o;
 }
 
-/* ---- Шаг 3 ---- */
+/* ---- Шаг 3. Себестоимость СДЭК ---- */
 
-function renderStep3(jars, cost, p, costHasVat) {
+function renderStep3(jars, tariff, p) {
   const out = $('step3-calc');
 
   if (jars === null) {
     out.innerHTML = '<div class="msg">Введите количество банок в начале блока.</div>';
     return;
   }
-  if (cost === null) {
-    out.innerHTML = '<div class="msg">Введите себестоимость от СДЭК, чтобы посчитать доплату.</div>';
+  if (tariff === null) {
+    out.innerHTML = '<div class="msg">Введите тариф доставки, чтобы посчитать себестоимость.</div>';
     return;
   }
 
-  const m = computeMoney(jars, cost, p, costHasVat);
+  const c = computeCost(jars, tariff, p);
   let h = '';
-  if (p.vatRate > 0) {
-    h += costHasVat
-      ? `<div class="crow"><span class="lbl">В том числе НДС ${fmtRub(p.vatRate)}%</span><span class="formula">${fmtRub(cost)} × ${fmtRub(p.vatRate)} / ${fmtRub(100 + p.vatRate)} = ${fmtRub(m.vatOnCost)}</span><span class="val">${fmtRub(m.vatOnCost)} ₽</span></div>`
-      : `<div class="crow"><span class="lbl">НДС ${fmtRub(p.vatRate)}% сверху</span><span class="formula">${fmtRub(cost)} × ${fmtRub(p.vatRate)} / 100 = ${fmtRub(m.vatOnCost)}</span><span class="val">${fmtRub(m.vatOnCost)} ₽</span></div>`;
-    h += `<div class="crow"><span class="lbl">Себестоимость с НДС</span><span class="formula">${fmtRub(m.costNet)} + ${fmtRub(m.vatOnCost)} = ${fmtRub(m.costGross)}</span><span class="val">${fmtRub(m.costGross)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Тариф доставки</span><span class="formula">по габаритам и весу мест из шага 2</span><span class="val">${fmtRub(tariff)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Объявленная ценность</span><span class="formula">${jars} × ${fmtRub(p.jarValue)} = ${fmtRub(c.declared)}</span><span class="val">${fmtRub(c.declared)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Страховой сбор ${fmtRub(p.insuranceRate)}%</span><span class="formula">${fmtRub(c.declared)} × ${fmtRub(p.insuranceRate)}% = ${fmtRub(c.insurance)}</span><span class="val">${fmtRub(c.insurance)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Сумма услуг без НДС</span><span class="formula">${fmtRub(tariff)} + ${fmtRub(c.insurance)} = ${fmtRub(c.net)}</span><span class="val">${fmtRub(c.net)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">НДС ${fmtRub(p.vatRate)}%</span><span class="formula">${fmtRub(c.net)} × ${fmtRub(p.vatRate)}% = ${fmtRub(c.vat)}</span><span class="val">${fmtRub(c.vat)} ₽</span></div>`;
+  h += `<div class="crow hit"><span class="lbl">Итого к оплате СДЭК</span><span class="formula">${fmtRub(c.net)} + ${fmtRub(c.vat)} = ${fmtRub(c.gross)}</span><span class="val">${fmtRub(c.gross)} ₽</span></div>`;
+  h += `<p class="note" style="margin:8px 0 0">НДС начисляется и на тариф, и на страховой сбор. Сбор растёт вместе с заказом: он считается от объявленной ценности, а она равна ${fmtRub(p.jarValue)} ₽ за банку.</p>`;
+
+  out.innerHTML = h;
+}
+
+/* ---- Шаг 4. Доплата клиента ---- */
+
+function renderStep4(jars, tariff, p) {
+  const out = $('step4-calc');
+
+  if (jars === null || tariff === null) {
+    out.innerHTML = '<div class="msg">Заполните количество банок и тариф доставки.</div>';
+    return;
   }
+
+  const c = computeCost(jars, tariff, p);
+  const m = computeMoney(jars, c.gross, p);
+  let h = '';
+  h += `<div class="crow"><span class="lbl">Итого от СДЭК</span><span class="formula">из шага 3</span><span class="val">${fmtRub(c.gross)} ₽</span></div>`;
   h += `<div class="crow"><span class="lbl">Субсидия</span><span class="formula">${jars} × ${fmtRub(p.subsidy)} = ${fmtRub(m.subsidy)}</span><span class="val">${fmtRub(m.subsidy)} ₽</span></div>`;
-  h += `<div class="crow"><span class="lbl">Разница</span><span class="formula">${fmtRub(m.costGross)} − ${fmtRub(m.subsidy)} = ${fmtRub(m.diff)}</span><span class="val">${fmtRub(m.diff)} ₽</span></div>`;
+  h += `<div class="crow"><span class="lbl">Разница</span><span class="formula">${fmtRub(c.gross)} − ${fmtRub(m.subsidy)} = ${fmtRub(m.diff)}</span><span class="val">${fmtRub(m.diff)} ₽</span></div>`;
+
   if (m.diff <= 0) {
-    h += `<div class="crow"><span class="lbl">Доплата</span><span class="formula">разница ≤ 0</span><span class="val">0 ₽</span></div>`;
+    h += '<div class="crow"><span class="lbl">Доплата</span><span class="formula">разница ≤ 0</span><span class="val">0 ₽</span></div>';
+    const be = breakevenTariff(jars, p);
+    if (be > 0) {
+      h += `<p class="note" style="margin:6px 0 0">Субсидия покрывает доставку целиком, пока тариф не превысит ${fmtRub(be)} ₽ — на таком заказе это запас в ${fmtRub(kop(be - tariff))} ₽. Дальше клиент начинает доплачивать, и первая же доплата будет не меньше ${fmtRub(p.minPay)} ₽.</p>`;
+    }
   } else {
     h += `<div class="crow"><span class="lbl">Округление вверх до кратного ${fmtRub(p.roundStep)} ₽</span><span class="formula">ceil(${fmtRub(m.diff)} / ${fmtRub(p.roundStep)}) × ${fmtRub(p.roundStep)} = ${fmtRub(m.rounded)}</span><span class="val">${fmtRub(m.rounded)} ₽</span></div>`;
     const minWins = m.rounded < p.minPay;
@@ -613,14 +667,11 @@ function renderStep3(jars, cost, p, costHasVat) {
       h += `<p class="note" style="margin:6px 0 0">Ради этого случая и нужна минимальная доплата: разница вышла всего ${fmtRub(m.diff)} ₽, после округления ${fmtRub(m.rounded)} ₽ — меньше минимума, поэтому клиент платит ${fmtRub(p.minPay)} ₽.</p>`;
     }
   }
+
   h += `<div class="result-chip">Доплата клиента: ${fmtRub(m.pay)} ₽`;
-  if (m.pay === 0) {
-    h += '<small>субсидия полностью покрыла доставку</small>';
-  } else {
-    h += p.vatRate > 0
-      ? `<small>в том числе НДС ${fmtRub(p.vatRate)}% — ${fmtRub(m.vatInPay)} ₽</small>`
-      : `<small>субсидия ${fmtRub(m.subsidy)} ₽ покрыла часть себестоимости ${fmtRub(m.costGross)} ₽</small>`;
-  }
+  h += m.pay === 0
+    ? '<small>субсидия полностью покрыла доставку</small>'
+    : `<small>в том числе НДС ${fmtRub(p.vatRate)}% — ${fmtRub(m.vatInPay)} ₽</small>`;
   h += '</div>';
 
   out.innerHTML = h;
@@ -628,13 +679,14 @@ function renderStep3(jars, cost, p, costHasVat) {
 
 /* ---- Таблица 1–24 ---- */
 
-function renderTable(cost, p, selectedJars, costHasVat) {
+function renderTable(tariff, p, selectedJars) {
   const rows = [];
   let prev = null, prevPay = null, anyOddInBox = false;
 
   for (let n = 1; n <= 24; n++) {
     const o = computeOrder(n, p);
-    const m = cost === null ? null : computeMoney(n, cost, p, costHasVat);
+    const c = tariff === null ? null : computeCost(n, tariff, p);
+    const m = c === null ? null : computeMoney(n, c.gross, p);
 
     const jumpPlaces = prev !== null && o.placeCount !== prev.placeCount;
     const jumpPay = m !== null && prevPay !== null && prevPay > 0 && m.pay === 0;
@@ -649,8 +701,10 @@ function renderTable(cost, p, selectedJars, costHasVat) {
       `<td>${compositionShort(o, p)}${o.oddInBox ? ' *' : ''}</td>` +
       `<td class="r">${w}</td>` +
       (m === null
-        ? '<td class="r">—</td><td class="r">—</td><td class="r">—</td>'
-        : `<td class="r">${fmtRub(m.subsidy)}</td>` +
+        ? '<td class="r">—</td>'.repeat(5)
+        : `<td class="r">${fmtRub(c.insurance)}</td>` +
+          `<td class="r">${fmtRub(c.gross)}</td>` +
+          `<td class="r">${fmtRub(m.subsidy)}</td>` +
           `<td class="r">${fmtRub(m.diff)}</td>` +
           `<td class="r${jumpPay ? ' jump' : ''}"><b>${fmtRub(m.pay)}</b></td>`) +
       '</tr>');
@@ -661,15 +715,9 @@ function renderTable(cost, p, selectedJars, costHasVat) {
 
   $('big-tbody').innerHTML = rows.join('');
   $('tbl-foot').hidden = !anyOddInBox;
-  if (cost === null) {
-    $('tbl-note').textContent = 'Себестоимость от СДЭК не задана в блоке 2, поэтому денежные колонки пустые.';
-  } else {
-    const gross = computeMoney(1, cost, p, costHasVat).costGross;
-    const vatNote = p.vatRate > 0
-      ? ` С НДС ${fmtRub(p.vatRate)}% это ${fmtRub(gross)} ₽ — разница и доплата считаются от этой суммы.`
-      : '';
-    $('tbl-note').textContent = `Себестоимость от СДЭК во всех строках одинаковая: ${fmtRub(cost)} ₽ ${costHasVat ? 'с НДС' : 'без НДС'} — значение из блока 2.${vatNote} В реальности она растёт с числом мест и весом; здесь фиксируется, чтобы были видны скачки от компоновки и субсидии.`;
-  }
+  $('tbl-note').textContent = tariff === null
+    ? 'Тариф доставки не задан в блоке 2, поэтому денежные колонки пустые.'
+    : `Тариф доставки во всех строках одинаковый: ${fmtRub(tariff)} ₽ без НДС — значение из блока 2. В реальности он растёт с числом мест и весом; здесь фиксируется, чтобы были видны скачки от компоновки. А вот страховой сбор и субсидия растут с числом банок по-настоящему, поэтому «Итого СДЭК» и «Разница» по строкам меняются.`;
 }
 
 // Сходятся ли габариты коробки с её заявленной вместимостью.
@@ -705,13 +753,12 @@ function readJars() {
   const v = Number(raw);
   return isFinite(v) && v >= 1 && Number.isInteger(v) ? v : null;
 }
-function readCost() {
-  const raw = $('in-cost').value.trim();
+function readTariff() {
+  const raw = $('in-tariff').value.trim();
   if (raw === '') return null;
   const v = Number(raw.replace(',', '.'));
   return isFinite(v) && v >= 0 ? v : null;
 }
-const readCostHasVat = () => $('in-cost-vat').value === 'gross';
 
 /* ---- Главный цикл ---- */
 
@@ -724,18 +771,19 @@ function render() {
     const msg = '<div class="msg">Проверьте параметры в блоке 1: подсвеченные поля должны быть заполнены корректными числами.</div>';
     $('step12').innerHTML = `<div class="step">${msg}</div>`;
     $('step3-calc').innerHTML = msg;
-    $('big-tbody').innerHTML = `<tr><td colspan="8">${msg}</td></tr>`;
+    $('step4-calc').innerHTML = msg;
+    $('big-tbody').innerHTML = `<tr><td colspan="10">${msg}</td></tr>`;
     $('tbl-note').textContent = '';
     $('tbl-foot').hidden = true;
     return;
   }
 
   const jars = readJars();
-  const cost = readCost();
-  const costHasVat = readCostHasVat();
+  const tariff = readTariff();
   renderSteps12(jars, p);
-  renderStep3(jars, cost, p, costHasVat);
-  renderTable(cost, p, jars, costHasVat);
+  renderStep3(jars, tariff, p);
+  renderStep4(jars, tariff, p);
+  renderTable(tariff, p, jars);
 }
 
 function fillParamInputs() {
